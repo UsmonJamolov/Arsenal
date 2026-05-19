@@ -1,0 +1,15 @@
+const mongoose = require("mongoose");
+
+const appSettingsSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true, unique: true, default: "main" },
+    paymentMethods: { type: [String], default: ["Payme", "Click", "Uzum Bank"] },
+    notifications: {
+      type: [String],
+      default: ["Xush kelibsiz! Bugun maxsus bonuslar mavjud."],
+    },
+  },
+  { timestamps: true, collection: "app_settings" },
+);
+
+module.exports = mongoose.models.AppSettings || mongoose.model("AppSettings", appSettingsSchema);

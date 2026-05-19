@@ -1,0 +1,82 @@
+TEXNIK TOPSHIRIQ (TZ)
+Loyiha: Game Club mobil ilovasi
+
+1. Loyiha maqsadi
+Foydalanuvchilarga PS yoki kompyuterlarning real vaqtdagi holatini ko‘rish,
+bo‘sh qurilmani band qilish, mobil orqali to‘lov qilish va kalyan mahsulotlarini
+buyurtma qilish imkonini beruvchi mobil ilova yaratish.
+
+2. Foydalanuvchilar
+- Oddiy foydalanuvchi: bron qilish, buyurtma berish, to‘lov qilish
+- Admin: qurilmalarni boshqarish, buyurtmalarni nazorat qilish
+
+3. Asosiy funksiyalar
+
+3.1 Qurilmalar holati (REAL-TIME)
+- PS va kompyuterlar ro‘yxati
+- Status: bo‘sh / band / bron qilingan
+- Real-time yangilanish (WebSocket yoki Firebase)
+
+3.2 Bron qilish
+- Qurilma tanlash
+- Vaqt tanlash (boshlanish / tugash)
+- Band bo‘lsa xatolik, bo‘sh bo‘lsa bron
+
+3.3 Kalyan buyurtma tizimi
+- Tamlar: olma, uzum, mint, mix
+- Stol va vaqt tanlash
+- Buyurtma admin panelga yuboriladi
+
+3.4 Stol holati
+- Stol ro‘yxati
+- Status: bo‘sh / band
+
+3.5 To‘lov tizimi
+- Payme, Click, Uzum Bank integratsiyasi
+- Status: pending / paid / failed
+
+3.6 Bildirishnomalar
+- Bron tasdiqlandi
+- Vaqt tugayapti
+- To‘lov muvaffaqiyatli
+
+3.7 Profil
+- Ism, telefon
+- Buyurtmalar tarixi
+
+4. Ilova sahifalari
+- Bosh sahifa
+- Qurilmalar sahifasi
+- Bron sahifasi
+- Kalyan sahifasi
+- Savatcha
+- To‘lov sahifasi
+- Profil
+
+5. Backend logika
+- Real-time tizim (WebSocket / Firebase)
+- Database jadvallari: Users, Devices, Bookings, Tables, HookahOrders, Payments
+
+6. Xavfsizlik
+- SMS login
+- JWT token
+- To‘lov verifikatsiya
+
+7. UX/UI
+- Minimal dizayn
+- Gaming stil (qora + neon ranglar)
+
+8. Texnologiyalar
+- Frontend: Flutter / React Native
+- Backend: Node.js / Firebase
+
+9. Qo‘shimcha funksiyalar
+- Bonus tizimi
+- Promo kod
+- Live countdown
+
+10. Fokus
+- Real-time status
+- Bron qilish
+- Kalyan buyurtma
+- To‘lov tizimi

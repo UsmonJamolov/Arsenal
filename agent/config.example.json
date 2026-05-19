@@ -1,0 +1,7 @@
+{
+  "apiUrl": "http://localhost:4000/api",
+  "stationId": "pc-01",
+  "agentKey": "arsenal-agent-dev-secret",
+  "pollIntervalMs": 3000,
+  "heartbeatIntervalMs": 15000
+}
