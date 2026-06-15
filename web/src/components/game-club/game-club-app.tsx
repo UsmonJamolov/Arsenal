@@ -1,24 +1,12 @@
 "use client";
 
-import {
-  Activity,
-  ArrowLeft,
-  ChevronRight,
-  Clock,
-  Cpu,
-  CreditCard,
-  Gamepad2,
-  HardDrive,
-  Headphones,
-  History,
-  Keyboard,
-  Monitor,
-  ShoppingCart,
-  Wifi,
-} from "lucide-react";
+import { ArrowLeft, ChevronRight, CreditCard, Gamepad2, History, Monitor, ShoppingCart } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MobileBottomNav } from "@/components/game-club/mobile-bottom-nav";
+import { HookahZonePanel } from "@/components/game-club/hookah-zone-panel";
+import { HomePanel } from "@/components/game-club/home-panel";
+import { PcZonePanel } from "@/components/game-club/pc-zone-panel";
 import { PsZonePanel } from "@/components/game-club/ps-zone-panel";
 import { StationUnlockPanel, type ClubSession } from "@/components/game-club/station-unlock-panel";
 import { ProfileBox } from "@/components/profile/profile-box";
@@ -40,13 +28,9 @@ import {
   type DeviceStatus,
   type DeviceZone,
   filterDevicesByZone,
-  getPcThumbImage,
   type HookahFlavor,
   type OrderRecord,
   ORDER_TYPE_LABEL,
-  PC_PROMO_IMAGE,
-  PC_HERO_IMAGE,
-  PC_SPEC_ITEMS,
   type PaymentMethod,
   PAYMENT_METHODS,
   STATUS_LABEL,
@@ -417,14 +401,20 @@ export function GameClubApp() {
   };
 
   return (
-    <main className="arena-bg min-h-screen overflow-hidden text-text-primary">
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 pb-24 sm:px-6 md:pb-6 lg:px-8">
-        <Header
-          cartCount={cart.length}
-          liveStatus={liveStatus}
-          paymentStatus={paymentStatus}
-        />
-        <TabsList className="mt-6 hidden md:grid">
+    <main
+      className={cn(
+        "min-h-screen text-text-primary",
+        activeTab === "home" ? "home-screen-bg" : activeTab === "hookah" ? "hookah-screen-bg" : "arena-bg",
+      )}
+    >
+      <div
+        className={cn(
+          "relative mx-auto flex w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8",
+          "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-6",
+          activeTab === "home" && "min-h-0",
+        )}
+      >
+        <TabsList className={cn("hidden md:grid", activeTab !== "home" && "mt-2", activeTab === "home" && "!hidden")}>
           {TABS.map((tab) => (
             <TabsTrigger
               key={tab.key}
@@ -437,17 +427,24 @@ export function GameClubApp() {
           ))}
         </TabsList>
 
-        <section
-          className={cn(
-            "grid flex-1 gap-5 py-6",
-            activeTab === "home" && "lg:grid-cols-[minmax(0,1fr)_360px]",
-          )}
-        >
-          <div className="space-y-5">
+        <section className={cn("grid gap-5", activeTab === "home" ? "pt-6 pb-0" : "py-2")}>
+          <div
+            className={cn(
+              "space-y-5",
+              (activeTab === "home" || activeTab === "devices" || activeTab === "hookah") && "mx-auto w-full max-w-lg",
+            )}
+          >
             {activeTab === "home" && (
               <HomePanel
                 devices={devices}
+                bookingsCount={bookings.length}
+                hookahCount={hookahFlavors.length}
+                liveStatus={liveStatus}
+                session={session}
+                profileAvatarUrl={profileAvatarUrl}
                 onOpenDevices={() => setActiveTab("devices")}
+                onOpenHookah={() => setActiveTab("hookah")}
+                onOpenProfile={() => setActiveTab("profile")}
               />
             )}
             {activeTab === "devices" &&
@@ -488,13 +485,14 @@ export function GameClubApp() {
                 />
               ))}
             {activeTab === "hookah" && (
-              <HookahPanel
+              <HookahZonePanel
                 flavors={hookahFlavors}
                 tables={tables}
                 loading={hookahLoading}
                 selectedFlavorId={selectedFlavorId}
                 selectedTableId={selectedTableId}
                 startHour={hookahStartHour}
+                onBack={() => setActiveTab("home")}
                 setSelectedFlavorId={setSelectedFlavorId}
                 setSelectedTableId={setSelectedTableId}
                 setStartHour={setHookahStartHour}
@@ -553,17 +551,6 @@ export function GameClubApp() {
               />
             )}
           </div>
-
-          {activeTab === "home" ? (
-            <AsidePanel
-              bookings={bookings}
-              cart={cart}
-              devices={devices}
-              lastPaymentTotal={lastPaymentTotal}
-              grandTotal={grandTotal}
-              onOpenCart={() => setActiveTab("cart")}
-            />
-          ) : null}
         </section>
 
         <MobileBottomNav
@@ -574,93 +561,6 @@ export function GameClubApp() {
         />
       </div>
     </main>
-  );
-}
-
-function Header({
-  cartCount,
-  liveStatus,
-  paymentStatus,
-}: {
-  cartCount: number;
-  liveStatus: LiveStatus;
-  paymentStatus: "pending" | "paid";
-}) {
-  return (
-    <header className="flex flex-col gap-4 rounded-2xl border border-border-strong/50 bg-arena-surface p-5 shadow-[0_10px_32px_oklch(0_0_0_/_0.24)] md:flex-row md:items-center md:justify-between">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex size-2 rounded-full bg-brand-gold" aria-hidden />
-          <p className="label-caps text-brand-gold">Arsenal Union</p>
-        </div>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-text-primary sm:text-4xl">
-          Game Club
-        </h1>
-        <p className="mt-2 max-w-xl text-sm text-text-secondary">
-          Bron qiling, to&apos;lang va qurilmangizni oching — hammasi bir joyda.
-        </p>
-        <p
-          className={cn(
-            "mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
-            liveStatus === "connected"
-              ? "border-status-available/40 bg-status-available/10 text-status-available"
-              : liveStatus === "connecting"
-                ? "border-status-booked/40 bg-status-booked/10 text-status-booked"
-                : "border-border-default bg-arena-overlay/50 text-text-muted",
-          )}
-        >
-          <Wifi className="size-3" />
-          {liveStatus === "connected"
-            ? "Live ulangan"
-            : liveStatus === "connecting"
-              ? "Live ulanmoqda..."
-              : "Live o'chiq (sahifa ishlaydi)"}
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:min-w-64">
-        <MiniStat label="Savat" value={`${cartCount} ta`} icon={<ShoppingCart className="size-4" />} />
-        <MiniStat
-          label="To'lov"
-          value={paymentStatus === "paid" ? "To'langan" : "Kutilmoqda"}
-          icon={<CreditCard className="size-4" />}
-        />
-      </div>
-    </header>
-  );
-}
-
-function HomePanel({
-  devices,
-  onOpenDevices,
-}: {
-  devices: Device[];
-  onOpenDevices: () => void;
-}) {
-  const freeDevices = devices.filter((device) => device.status === "available").length;
-
-  return (
-    <>
-      <Card className="overflow-hidden border-brand-gold/35 bg-gradient-to-br from-brand-gold-dim via-arena-surface to-arena-overlay p-8 text-center shadow-[0_12px_36px_oklch(0_0_0_/_0.28)]">
-        <p className="label-caps text-brand-gold">O&apos;yinlar olamiga xush kelibsiz</p>
-        <h2 className="mt-4 text-4xl font-black tracking-tight text-text-primary sm:text-5xl">
-          Game Club
-        </h2>
-        <p className="mx-auto mt-4 max-w-lg text-text-secondary">
-          PS va PC qurilmalarini bron qiling, kalyan buyurtma bering va onlayn to&apos;lang.
-        </p>
-        <div className="mt-6 flex justify-center">
-          <Button variant="accent" size="lg" onClick={onOpenDevices}>
-            <Gamepad2 className="size-4" />
-            Qurilmalarni ko&apos;rish
-          </Button>
-        </div>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <MiniStat label="Bo'sh qurilmalar" value={`${freeDevices}/${devices.length}`} icon={<Activity className="size-4" />} />
-        <MiniStat label="To'lov usullari" value="3 ta" icon={<CreditCard className="size-4" />} />
-      </div>
-    </>
   );
 }
 
@@ -723,223 +623,6 @@ function DeviceZonePicker({
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function PcZonePanel({
-  devices,
-  loading,
-  selectedDeviceId,
-  bookingPrice,
-  durationHours,
-  startHour,
-  onBack,
-  onSelect,
-  setDurationHours,
-  setStartHour,
-  onCreateBooking,
-}: {
-  devices: Device[];
-  loading: boolean;
-  selectedDeviceId: string;
-  bookingPrice: number;
-  durationHours: number;
-  startHour: string;
-  onBack: () => void;
-  onSelect: (id: string) => void;
-  setDurationHours: (value: number) => void;
-  setStartHour: (value: string) => void;
-  onCreateBooking: () => void;
-}) {
-  const activePc =
-    devices.find((device) => device.id === selectedDeviceId) ?? devices[0];
-
-  if (loading) {
-    return (
-      <div className="pc-zone">
-        <p className="text-sm text-text-muted">PC qurilmalar yuklanmoqda...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="pc-zone">
-      <div className="pc-zone__layout">
-        <aside className="pc-zone__sidebar">
-          <div className="pc-zone__sidebar-head">
-            <Button type="button" variant="ghost" size="sm" className="mb-4 w-fit px-0" onClick={onBack}>
-              <ArrowLeft className="size-4" />
-              Orqaga
-            </Button>
-            <div className="flex items-start gap-3">
-              <div className="pc-zone__icon-box">
-                <Monitor className="size-5 text-brand-cyan" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-text-primary">PC lar holati</h2>
-                <p className="mt-1 text-sm text-text-muted">
-                  Qurilmani tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="pc-zone__device-list">
-            {devices.map((device, index) => {
-              const active = selectedDeviceId === device.id;
-              const busy = device.status !== "available";
-
-              return (
-                <button
-                  key={device.id}
-                  type="button"
-                  onClick={() => onSelect(device.id)}
-                  className={cn(
-                    "pc-zone__device-card",
-                    active && "pc-zone__device-card--active",
-                    busy && "pc-zone__device-card--busy",
-                  )}
-                >
-                  <div className="min-w-0 flex-1 text-left">
-                    <p className="font-bold text-text-primary">{device.name}</p>
-                    <p className="mt-0.5 text-xs text-text-muted">{device.type}</p>
-                    <p className="mt-1 tabular-data text-sm font-semibold text-brand-cyan">
-                      {formatCurrency(device.pricePerHour)}/soat
-                    </p>
-                    <PcStatusPill status={device.status} className="mt-2" />
-                  </div>
-                  <div
-                    className="pc-zone__device-thumb"
-                    style={{ backgroundImage: `url(${getPcThumbImage()})` }}
-                    aria-hidden
-                  />
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="pc-zone__promo" style={{ backgroundImage: `url(${PC_PROMO_IMAGE})` }}>
-            <div className="pc-zone__promo-overlay">
-              <p className="text-sm font-semibold leading-snug text-text-primary">
-                Do&apos;stlaringiz bilan o&apos;ynang va g&apos;alaba qozoning!
-              </p>
-              <span className="pc-zone__promo-tag">Arsenal Union</span>
-            </div>
-          </div>
-        </aside>
-
-        <section className="pc-zone__booking">
-          {!activePc ? (
-            <div className="pc-zone__booking-empty">
-              <p className="text-lg font-semibold text-text-primary">Qurilma bron qilish</p>
-              <p className="mt-2 text-sm text-text-muted">Chapdan PC tanlang.</p>
-            </div>
-          ) : (
-            <>
-              <div className="pc-zone__booking-head">
-                <div>
-                  <h2 className="text-xl font-bold text-text-primary">Qurilma bron qilish</h2>
-                  <p className="mt-1 text-sm text-text-muted">Tanlangan qurilma: {activePc.name}</p>
-                </div>
-              </div>
-
-              <div className="pc-zone__hero" style={{ backgroundImage: `url(${PC_HERO_IMAGE})` }} aria-hidden />
-
-              <div className="pc-zone__form">
-                <label className="pc-zone__field">
-                  <span className="pc-zone__label">Boshlanish vaqti</span>
-                  <div className="relative">
-                    <Clock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-text-faint" />
-                    <Input
-                      value={startHour}
-                      onChange={(event) => setStartHour(event.target.value)}
-                      placeholder="13:00"
-                      className="pc-zone__input h-12 pl-11"
-                    />
-                  </div>
-                </label>
-
-                <div className="pc-zone__field">
-                  <span className="pc-zone__label">Davomiyligi (soat)</span>
-                  <div className="grid grid-cols-4 gap-2">
-                    {durationOptions.map((hour) => (
-                      <button
-                        key={hour}
-                        type="button"
-                        onClick={() => setDurationHours(hour)}
-                        className={cn(
-                          "pc-zone__duration",
-                          durationHours === hour && "pc-zone__duration--active",
-                        )}
-                      >
-                        {hour}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pc-zone__total">
-                  <div>
-                    <p className="text-sm text-text-muted">Jami</p>
-                    <p className="tabular-data text-2xl font-bold text-brand-cyan">{formatCurrency(bookingPrice)}</p>
-                  </div>
-                  <p className="text-sm font-medium text-text-secondary">{durationHours} soat</p>
-                </div>
-
-                <button
-                  type="button"
-                  className="pc-zone__submit"
-                  onClick={onCreateBooking}
-                  disabled={activePc.status !== "available"}
-                >
-                  Bron qilish
-                  <ChevronRight className="size-5" />
-                </button>
-              </div>
-
-              <div className="pc-zone__specs">
-                {PC_SPEC_ITEMS.map((spec, index) => (
-                  <div key={spec.title} className="pc-zone__spec">
-                    <PcSpecIcon index={index} />
-                    <div>
-                      <p className="text-sm font-semibold text-text-primary">{spec.title}</p>
-                      <p className="text-xs text-text-muted">{spec.detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function PcStatusPill({ status, className }: { status: DeviceStatus; className?: string }) {
-  return (
-    <span
-      className={cn(
-        "pc-zone__status",
-        status === "available" && "pc-zone__status--free",
-        status === "busy" && "pc-zone__status--busy",
-        status === "booked" && "pc-zone__status--booked",
-        className,
-      )}
-    >
-      {STATUS_LABEL[status].toUpperCase()}
-    </span>
-  );
-}
-
-function PcSpecIcon({ index }: { index: number }) {
-  const icons = [Cpu, HardDrive, Monitor, Monitor, Keyboard, Headphones];
-  const Icon = icons[index] ?? Cpu;
-
-  return (
-    <div className="pc-zone__spec-icon">
-      <Icon className="size-4 text-brand-cyan" />
-    </div>
   );
 }
 
@@ -1069,123 +752,6 @@ function BookingPanel({
         <PressButton variant="primary" onClick={onCreateBooking}>
           Bron qilish
         </PressButton>
-      </CardContent>
-    </Card>
-  );
-}
-
-function HookahPanel({
-  flavors,
-  tables,
-  loading,
-  onAddHookah,
-  selectedFlavorId,
-  selectedTableId,
-  startHour,
-  setSelectedFlavorId,
-  setSelectedTableId,
-  setStartHour,
-}: {
-  flavors: HookahFlavor[];
-  tables: ClubTable[];
-  loading: boolean;
-  onAddHookah: () => void;
-  selectedFlavorId: string;
-  selectedTableId: string;
-  startHour: string;
-  setSelectedFlavorId: (id: string) => void;
-  setSelectedTableId: (id: string) => void;
-  setStartHour: (value: string) => void;
-}) {
-  if (!flavors.length || !tables.length) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Kalyan buyurtmasi</CardTitle>
-          <CardDescription>Stol va ta&apos;mlar hozircha mavjud emas.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-text-muted">Hozircha kalyan ta&apos;mlari yoki stollar mavjud emas.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Kalyan buyurtmasi</CardTitle>
-        <CardDescription>Stol va ta&apos;mni tanlab, buyurtmani savatga qo&apos;shing.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <label className="space-y-2">
-          <span className="text-sm font-semibold text-text-secondary">Bron boshlanish vaqti</span>
-          <Input
-            value={startHour}
-            onChange={(event) => setStartHour(event.target.value)}
-            placeholder="13:00"
-            inputMode="numeric"
-          />
-        </label>
-
-        <div className="space-y-3">
-          <span className="text-sm font-semibold text-text-secondary">Stol tanlang</span>
-          <div className="flex flex-wrap gap-2 label-caps">
-            <span className="inline-flex items-center gap-1.5 text-status-available">
-              <span className="size-2 rounded-full bg-status-available" /> Bo&apos;sh
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-status-busy">
-              <span className="size-2 rounded-full bg-status-busy" /> Band
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-status-booked">
-              <span className="size-2 rounded-full bg-status-booked" /> Bron
-            </span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {tables.map((table) => (
-              <button
-                key={table.id}
-                type="button"
-                onClick={() => setSelectedTableId(table.id)}
-                className={cn(
-                  touchPress,
-                  "rounded-xl border-2 p-4 text-left active:ring-2 active:ring-brand-cyan/40",
-                  table.status === "available" && "border-status-available/40 bg-status-available/8",
-                  table.status === "busy" && "border-status-busy/40 bg-status-busy/8",
-                  table.status === "booked" && "border-status-booked/40 bg-status-booked/8",
-                  selectedTableId === table.id && "ring-2 ring-brand-magenta ring-offset-2 ring-offset-arena-base",
-                )}
-              >
-                <p className="font-semibold text-text-primary">{table.title}</p>
-                <TableStatusBadge status={table.status} className="mt-2" />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {flavors.map((flavor) => (
-            <SelectableRow
-              key={flavor.id}
-              active={selectedFlavorId === flavor.id}
-              onClick={() => setSelectedFlavorId(flavor.id)}
-            >
-              <div>
-                <p className="font-semibold text-text-primary">{flavor.title}</p>
-                <p className="tabular-data text-sm text-text-muted">{formatCurrency(flavor.price)}</p>
-              </div>
-            </SelectableRow>
-          ))}
-        </div>
-
-        <Button
-          className="w-full"
-          variant="accent"
-          onClick={onAddHookah}
-          disabled={loading || !selectedFlavorId || !selectedTableId || !startHour.trim()}
-        >
-          {loading ? "Qo'shilmoqda..." : "Buyurtma berish"}
-        </Button>
       </CardContent>
     </Card>
   );

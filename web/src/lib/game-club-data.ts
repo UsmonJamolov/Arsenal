@@ -128,7 +128,20 @@ export const PC_THUMB_IMAGE = "/devices/pc-setup-2.png";
 
 export const PC_HERO_IMAGE = "/devices/pc-setup-2.png";
 
+export const PC_BOOKING_HERO = PC_HERO_IMAGE;
+
 export const PC_PROMO_IMAGE = "/devices/pc-promo.png";
+
+export const PC_STATION_META = [
+  { gpu: "RTX 3060", display: "144Hz" },
+  { gpu: "RTX 3060", display: "144Hz" },
+  { gpu: "RTX 3060", display: "144Hz" },
+  { gpu: "RTX 3060", display: "144Hz" },
+] as const;
+
+export function getPcStationMeta(index: number) {
+  return PC_STATION_META[index % PC_STATION_META.length];
+}
 
 export const PC_SPEC_ITEMS = [
   { title: "RTX 3060", detail: "8GB GDDR6" },
@@ -167,6 +180,71 @@ export function getPsDeviceImage(index: number) {
 
 export function getPsStationMeta(index: number) {
   return PS_STATION_META[index % PS_STATION_META.length];
+}
+
+export const HOME_IMAGES = {
+  heroGamer: "/home/hero-gamer.png",
+  welcomePortal: "/home/welcome-portal.png",
+  catDevices: "/home/cat-devices.png",
+  catHookah: "/home/cat-hookah.png",
+  catPc: "/devices/pc-setup-2.png",
+} as const;
+
+export const HOOKAH_HERO = "/hookah/hero-lounge.png";
+
+export const HOOKAH_TABLE_IMAGES = [
+  "/hookah/table-01.png",
+  "/hookah/table-02.png",
+  "/hookah/table-03.png",
+] as const;
+
+export const HOOKAH_TABLE_META = [
+  { seats: 4, zone: "Kafe zonasi" },
+  { seats: 4, zone: "Kafe zonasi" },
+  { seats: 4, zone: "Kafe zonasi" },
+] as const;
+
+export const HOOKAH_FLAVOR_IMAGES = [
+  "/hookah/apple.png",
+  "/hookah/grape.png",
+  "/hookah/mint.png",
+  "/hookah/mix.png",
+] as const;
+
+const HOOKAH_FLAVOR_IMAGE_BY_KEY: Record<string, string> = {
+  apple: "/hookah/apple.png",
+  olma: "/hookah/apple.png",
+  grape: "/hookah/grape.png",
+  uzum: "/hookah/grape.png",
+  mint: "/hookah/mint.png",
+  mix: "/hookah/mix.png",
+};
+
+export function getHookahTableImage(index: number) {
+  return HOOKAH_TABLE_IMAGES[index % HOOKAH_TABLE_IMAGES.length];
+}
+
+export function getHookahTableMeta(index: number) {
+  return HOOKAH_TABLE_META[index % HOOKAH_TABLE_META.length];
+}
+
+export function getHookahFlavorImage(flavor: HookahFlavor, index: number) {
+  const id = flavor.id.toLowerCase().trim();
+  const title = flavor.title.toLowerCase().trim();
+
+  const byId = HOOKAH_FLAVOR_IMAGE_BY_KEY[id];
+  if (byId) return byId;
+
+  const byTitle = HOOKAH_FLAVOR_IMAGE_BY_KEY[title];
+  if (byTitle) return byTitle;
+
+  for (const [key, path] of Object.entries(HOOKAH_FLAVOR_IMAGE_BY_KEY)) {
+    if (id.includes(key) || title.includes(key)) {
+      return path;
+    }
+  }
+
+  return HOOKAH_FLAVOR_IMAGES[index % HOOKAH_FLAVOR_IMAGES.length];
 }
 
 export const TABS: { key: TabKey; label: string }[] = [
