@@ -6,7 +6,7 @@ function getAllowedOrigins() {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return [...new Set([...fromEnv, "http://localhost:3000", "http://127.0.0.1:3000"])];
+  return [...new Set([...fromEnv, "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"])];
 }
 
 function isOriginAllowed(origin) {
@@ -14,11 +14,7 @@ function isOriginAllowed(origin) {
     return true;
   }
 
-  if (getAllowedOrigins().includes(origin)) {
-    return true;
-  }
-
-  return /^https:\/\/[\w-]+\.trycloudflare\.com$/.test(origin);
+  return getAllowedOrigins().includes(origin);
 }
 
 module.exports = { getAllowedOrigins, isOriginAllowed };

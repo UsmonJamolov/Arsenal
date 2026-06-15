@@ -6,7 +6,7 @@ export function TabsList({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "grid gap-2 rounded-3xl border border-violet-500/25 bg-black/20 p-2 sm:grid-cols-2 lg:grid-cols-7",
+        "grid gap-1 rounded-2xl border border-border-default bg-arena-surface p-1.5 shadow-[0_4px_16px_oklch(0_0_0_/_0.18)] sm:grid-cols-2 lg:grid-cols-6",
         className,
       )}
       {...props}
@@ -19,7 +19,10 @@ export function TabsTrigger({ className, ...props }: React.ComponentProps<"butto
     <button
       className={cn(
         touchPress,
-        "rounded-2xl px-3 py-2 text-sm font-bold text-violet-200 hover:bg-white/10 hover:text-cyan-100 active:bg-white/20 data-[state=active]:bg-cyan-300/15 data-[state=active]:text-cyan-200 data-[state=active]:shadow-[0_0_18px_rgba(34,211,238,0.22)] data-[state=active]:active:bg-cyan-300/30",
+        "rounded-xl px-3 py-2.5 text-sm font-semibold text-text-secondary transition-colors",
+        "hover:bg-arena-overlay hover:text-text-primary",
+        "data-[state=active]:bg-brand-cyan-dim data-[state=active]:text-brand-cyan",
+        "data-[state=active]:border data-[state=active]:border-brand-cyan/45 data-[state=active]:shadow-[inset_0_0_0_1px_oklch(0.8_0.15_195_/_0.2)]",
         className,
       )}
       {...props}

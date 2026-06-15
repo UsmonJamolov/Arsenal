@@ -1,88 +1,39 @@
-const bcrypt = require("bcryptjs");
 const express = require("express");
 
+const { telegramBotUsername } = require("../config");
 const User = require("../models/User");
+const { findOrCreateUser, normalizePhone, verifyOtp } = require("../services/telegramAuth");
 
 const router = express.Router();
 
-function normalizePhone(phone) {
-  return String(phone).replace(/\s+/g, "").trim();
-}
-
-function normalizeEmail(email, phone) {
-  const value = String(email || "").trim().toLowerCase();
-  if (value) {
-    return value;
-  }
-
-  return `${normalizePhone(phone)}@arsenal.union`;
-}
-
-router.post("/register", async (req, res, next) => {
-  try {
-    const { name, phone, email, password } = req.body ?? {};
-
-    if (!name?.trim()) {
-      return res.status(400).json({ message: "Ism majburiy" });
-    }
-
-    if (!phone?.trim() || normalizePhone(phone).length < 8) {
-      return res.status(400).json({ message: "Telefon raqam noto'g'ri" });
-    }
-
-    if (!password || String(password).length < 4) {
-      return res.status(400).json({ message: "Parol kamida 4 ta belgidan iborat bo'lishi kerak" });
-    }
-
-    const phoneValue = normalizePhone(phone);
-    const emailValue = normalizeEmail(email, phoneValue);
-
-    const exists = await User.findOne({
-      $or: [{ phone: phoneValue }, { email: emailValue }],
-    });
-
-    if (exists) {
-      return res.status(409).json({ message: "Bu telefon yoki email allaqachon ro'yxatdan o'tgan" });
-    }
-
-    const hashedPassword = await bcrypt.hash(String(password), 10);
-
-    const user = await User.create({
-      name: name.trim(),
-      phone: phoneValue,
-      email: emailValue,
-      password: hashedPassword,
-      loyaltyPoints: 120 + Math.floor(Math.random() * 80),
-    });
-
-    res.status(201).json({ user: user.toPublicJSON() });
-  } catch (error) {
-    next(error);
-  }
+router.get("/telegram/config", (req, res) => {
+  res.json({
+    botUsername: telegramBotUsername,
+    botUrl: `https://t.me/${telegramBotUsername}?start=login`,
+  });
 });
 
-router.post("/login", async (req, res, next) => {
+router.post("/telegram/verify", async (req, res, next) => {
   try {
-    const { phone, password } = req.body ?? {};
+    const { phone, code } = req.body ?? {};
 
-    if (!phone?.trim() || !password) {
-      return res.status(400).json({ message: "Telefon va parol majburiy" });
+    if (!code || String(code).trim().length !== 6) {
+      return res.status(400).json({ message: "6 xonali kod majburiy" });
     }
 
-    const user = await User.findOne({ phone: normalizePhone(phone) }).select("+password");
-
-    if (!user) {
-      return res.status(401).json({ message: "Telefon yoki parol noto'g'ri" });
-    }
-
-    const valid = await bcrypt.compare(String(password), user.password);
-
-    if (!valid) {
-      return res.status(401).json({ message: "Telefon yoki parol noto'g'ri" });
-    }
+    const verified = await verifyOtp({ phone, code });
+    const user = await findOrCreateUser({
+      phone: verified.phone,
+      telegramChatId: verified.telegramChatId,
+      telegramName: verified.telegramName,
+    });
 
     res.json({ user: user.toPublicJSON() });
   } catch (error) {
+    if (error.message.includes("noto'g'ri") || error.message.includes("muddati")) {
+      return res.status(401).json({ message: error.message });
+    }
+
     next(error);
   }
 });

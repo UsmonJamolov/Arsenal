@@ -59,25 +59,25 @@ export function StationUnlockPanel({ sessions, onUnlocked, onCancelSession }: Pr
   };
 
   return (
-    <Card className="border-cyan-400/30 bg-cyan-500/5">
+    <Card className="border-brand-cyan/25 bg-brand-cyan-dim">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Monitor className="size-5 text-cyan-300" />
-          Stansiyani ochish
+          <Monitor className="size-5 text-brand-cyan" />
+          Qurilmani ochish
         </CardTitle>
         <CardDescription>
-          Klubga kelgach, kompyuter yonida ushbu PIN ni kiriting — stansiya avtomatik ochiladi.
+          Klubga kelgach, kompyuter yonida ushbu PIN ni kiriting — qurilma avtomatik ochiladi.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           {sessions.map((s) => (
-            <div key={s.id} className="rounded-2xl border border-violet-400/25 bg-violet-500/10 p-4">
-              <p className="font-bold text-white">{s.deviceName}</p>
-              <p className="mt-1 text-sm text-violet-200/70">
-                Stansiya: {s.stationId} • {s.durationMinutes} daqiqa
+            <div key={s.id} className="rounded-xl border border-border-default bg-arena-overlay/60 p-4">
+              <p className="font-semibold text-text-primary">{s.deviceName}</p>
+              <p className="mt-1 text-sm text-text-muted">
+                Qurilma: {s.stationId} • {s.durationMinutes} daqiqa
               </p>
-              <p className="mt-3 font-mono text-3xl font-black tracking-[0.35em] text-cyan-200">{s.unlockPin}</p>
+              <p className="tabular-data mt-3 text-3xl font-bold tracking-[0.2em] text-brand-cyan">{s.unlockPin}</p>
               <Badge variant="booked" className="mt-2">
                 {s.status === "pending_unlock" ? "PIN kutilmoqda" : s.status}
               </Badge>
@@ -97,7 +97,7 @@ export function StationUnlockPanel({ sessions, onUnlocked, onCancelSession }: Pr
         </div>
 
         <label className="block space-y-2">
-          <span className="text-sm font-semibold text-violet-200/80">Qurilma</span>
+          <span className="text-sm font-semibold text-text-secondary">Qurilma</span>
           <Select value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
             {sessions.map((s) => (
               <option key={s.deviceId} value={s.deviceId}>
@@ -108,7 +108,7 @@ export function StationUnlockPanel({ sessions, onUnlocked, onCancelSession }: Pr
         </label>
 
         <label className="block space-y-2">
-          <span className="text-sm font-semibold text-violet-200/80">PIN kod</span>
+          <span className="text-sm font-semibold text-text-secondary">PIN kod</span>
           <Input
             inputMode="numeric"
             maxLength={6}
@@ -121,11 +121,11 @@ export function StationUnlockPanel({ sessions, onUnlocked, onCancelSession }: Pr
 
         <Button className="w-full" onClick={unlock} disabled={loading || pin.length < 4}>
           <KeyRound className="size-4" />
-          {loading ? "Tekshirilmoqda..." : "Stansiyani ochish"}
+          {loading ? "Tekshirilmoqda..." : "Qurilmani ochish"}
         </Button>
 
-        {message ? <p className="text-sm font-semibold text-emerald-300">{message}</p> : null}
-        {error ? <p className="text-sm font-semibold text-rose-300">{error}</p> : null}
+        {message ? <p className="text-sm font-semibold text-status-available">{message}</p> : null}
+        {error ? <p className="text-sm font-semibold text-status-busy">{error}</p> : null}
       </CardContent>
     </Card>
   );

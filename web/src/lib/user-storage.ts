@@ -34,3 +34,42 @@ export function clearPendingSessions(userId: string) {
   }
   localStorage.removeItem(pendingSessionsKey(userId));
 }
+
+const PROFILE_EXTRAS_PREFIX = "arsenal-profile-extras";
+
+export type UserProfileExtras = {
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+};
+
+export function profileExtrasKey(userId: string) {
+  return `${PROFILE_EXTRAS_PREFIX}-${userId}`;
+}
+
+export function loadProfileExtras(userId: string, defaults: UserProfileExtras): UserProfileExtras {
+  if (typeof window === "undefined") {
+    return defaults;
+  }
+  try {
+    const raw = localStorage.getItem(profileExtrasKey(userId));
+    if (!raw) {
+      return defaults;
+    }
+    const parsed = JSON.parse(raw) as Partial<UserProfileExtras>;
+    return {
+      firstName: parsed.firstName ?? defaults.firstName,
+      lastName: parsed.lastName ?? defaults.lastName,
+      avatarUrl: parsed.avatarUrl ?? defaults.avatarUrl,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+export function saveProfileExtras(userId: string, extras: UserProfileExtras) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.setItem(profileExtrasKey(userId), JSON.stringify(extras));
+}

@@ -1,12 +1,58 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const Booking = require("../models/Booking");
+const config = require("../config");
 const Payment = require("../models/Payment");
-const { pushNotification: pushStoreNotification } = require("../store");
-const { pushNotification } = require("../services/settings");
-const { createSessionFromBooking } = require("../services/sessionService");
+const PaymentIntent = require("../models/PaymentIntent");
+const { getState } = require("../store");
+const { completePaymentIntent } = require("../services/paymentCompletion");
+const {
+  createCheckout,
+  getWebhookVerifier,
+  resolveProviderKey,
+  shouldUseSandbox,
+} = require("../services/paymentProviders");
 
 const router = express.Router();
+
+const INTENT_TTL_MINUTES = 30;
+
+function resolveClientOrigin(req) {
+  const origin = req.get("origin");
+  if (origin) {
+    return origin.replace(/\/$/, "");
+  }
+
+  const referer = req.get("referer");
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {
+      /* noto'g'ri referer */
+    }
+  }
+
+  const forwardedHost = req.get("x-forwarded-host");
+  if (forwardedHost) {
+    const proto = req.get("x-forwarded-proto") || "https";
+    return `${proto}://${forwardedHost}`.replace(/\/$/, "");
+  }
+
+  return config.publicSiteUrl.replace(/\/$/, "");
+}
+
+function buildReturnUrl(intentId, siteOrigin) {
+  const base = siteOrigin || config.publicSiteUrl.replace(/\/$/, "");
+  return `${base}/payment/return?intent=${intentId}`;
+}
+
+function snapshotCart(cart) {
+  return cart.map((item) => ({
+    id: item.id,
+    type: item.type,
+    title: item.title,
+    price: item.price,
+  }));
+}
 
 router.get("/history", async (req, res, next) => {
   try {
@@ -45,21 +91,57 @@ router.get("/history", async (req, res, next) => {
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.get("/status/:intentId", async (req, res, next) => {
+  try {
+    const intent = await PaymentIntent.findById(req.params.intentId);
+
+    if (!intent) {
+      return res.status(404).json({ message: "To'lov topilmadi" });
+    }
+
+    if (req.userId && intent.userId.toString() !== String(req.userId)) {
+      return res.status(403).json({ message: "Ruxsat yo'q" });
+    }
+
+    let sessions = [];
+
+    if (intent.status === "paid") {
+      const result = await completePaymentIntent(intent._id);
+      sessions = result.sessions || [];
+    }
+
+    res.json({
+      intent: intent.toJSON(),
+      status: intent.status,
+      sessions,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/checkout", handleCheckout);
+router.post("/", handleCheckout);
+
+async function handleCheckout(req, res, next) {
   try {
     const userId = req.userId || req.body?.userId;
-    const { method } = req.body ?? {};
-    const { cart, paymentStatus } = req.userCart;
+    const { method, phoneNumber } = req.body ?? {};
+    const { cart } = req.userCart;
 
     if (!userId) {
       return res.status(401).json({ message: "To'lov uchun avval tizimga kiring" });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Foydalanuvchi ID noto'g'ri" });
     }
 
     if (!cart.length) {
       return res.status(400).json({ message: "Savat bo'sh: avval mahsulot yoki bron qo'shing" });
     }
 
-    const state = require("../store").getState();
+    const state = getState();
     const allowed = state.paymentMethods;
     const paymentMethod = method || allowed[0];
 
@@ -67,71 +149,211 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ message: "To'lov usuli noto'g'ri" });
     }
 
-    const total = cart.reduce((sum, item) => sum + item.price, 0);
-    const sessions = [];
-    const paidAt = new Date();
+    const providerKey = resolveProviderKey(paymentMethod);
 
-    for (const item of cart) {
-      if (item.type !== "booking") {
-        continue;
-      }
-
-      const booking = await Booking.findById(item.id);
-
-      if (!booking || booking.status !== "active") {
-        continue;
-      }
-
-      const session = await createSessionFromBooking({
-        booking,
-        paymentMethod,
-        amount: item.price,
-      });
-
-      if (!booking.userId) {
-        booking.userId = userId;
-        await booking.save();
-      }
-
-      sessions.push({
-        id: session._id.toString(),
-        deviceId: session.deviceId,
-        deviceName: session.deviceName,
-        stationId: session.stationId,
-        unlockPin: session.unlockPin,
-        endsAt: session.endsAt.toISOString(),
-        durationMinutes: session.durationMinutes,
-        status: session.status,
-      });
+    if (!providerKey) {
+      return res.status(400).json({ message: "To'lov provayderi topilmadi" });
     }
 
-    await Payment.create({
+    const total = cart.reduce((sum, item) => sum + item.price, 0);
+    const expiresAt = new Date(Date.now() + INTENT_TTL_MINUTES * 60 * 1000);
+
+    await PaymentIntent.updateMany(
+      {
+        userId,
+        status: "pending",
+        expiresAt: { $lt: new Date() },
+      },
+      { status: "expired" },
+    );
+
+    const intent = await PaymentIntent.create({
       userId,
-      items: cart.map((item) => ({
-        id: item.id,
-        type: item.type,
-        title: item.title,
-        price: item.price,
-      })),
+      items: snapshotCart(cart),
       total,
       method: paymentMethod,
-      paidAt,
+      provider: shouldUseSandbox(providerKey) ? "sandbox" : providerKey,
+      status: "pending",
+      mode: shouldUseSandbox(providerKey) ? "sandbox" : "live",
+      expiresAt,
     });
 
-    cart.length = 0;
-    req.userCart.paymentStatus = "paid";
+    const siteOrigin = resolveClientOrigin(req);
+    const returnUrl = buildReturnUrl(intent._id.toString(), siteOrigin);
+    const description = `Arsenal Union — ${cart.length} ta buyurtma`;
 
-    const message = `To'lov muvaffaqiyatli! Jami: ${total} so'm (${paymentMethod}).`;
-    pushStoreNotification(message);
-    await pushNotification(message, "bookings");
+    const checkout = await createCheckout({
+      method: paymentMethod,
+      intentId: intent._id.toString(),
+      amount: total,
+      description,
+      returnUrl,
+      phoneNumber,
+      siteOrigin,
+    });
+
+    intent.provider = checkout.provider;
+    intent.mode = checkout.mode;
+    intent.externalTransactionId = checkout.externalTransactionId || "";
+    intent.checkoutUrl = checkout.checkoutUrl;
+    intent.returnUrl = checkout.returnUrl || returnUrl;
+    intent.metadata = checkout.metadata || {};
+    await intent.save();
+
+    res.status(201).json({
+      intentId: intent._id.toString(),
+      status: "pending",
+      method: paymentMethod,
+      provider: intent.provider,
+      mode: intent.mode,
+      total,
+      checkoutUrl: intent.checkoutUrl,
+      returnUrl: intent.returnUrl,
+      expiresAt: intent.expiresAt.toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+router.post("/sandbox/:intentId/complete", async (req, res, next) => {
+  try {
+    const intent = await PaymentIntent.findById(req.params.intentId);
+
+    if (!intent) {
+      return res.status(404).json({ message: "To'lov topilmadi" });
+    }
+
+    if (intent.mode !== "sandbox" && config.paymentMode !== "sandbox") {
+      return res.status(403).json({ message: "Demo to'lov faqat test rejimida" });
+    }
+
+    if (req.userId && intent.userId.toString() !== String(req.userId)) {
+      return res.status(403).json({ message: "Ruxsat yo'q" });
+    }
+
+    const result = await completePaymentIntent(intent._id, {
+      externalTransactionId: `sandbox_${intent._id}`,
+      metadata: { sandbox: true },
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ message: result.message });
+    }
 
     res.json({
       status: "paid",
-      method: paymentMethod,
-      total,
-      paidAt: paidAt.toISOString(),
-      sessions,
+      method: result.method,
+      total: result.total,
+      paidAt: result.paidAt,
+      sessions: result.sessions,
+      intent: result.intent.toJSON(),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/return", async (req, res, next) => {
+  try {
+    const { intent, status } = req.query;
+
+    if (!intent) {
+      return res.status(400).json({ message: "intent parametri kerak" });
+    }
+
+    const paymentIntent = await PaymentIntent.findById(intent);
+
+    if (!paymentIntent) {
+      return res.status(404).json({ message: "To'lov topilmadi" });
+    }
+
+    if (status === "cancel" || status === "cancelled") {
+      paymentIntent.status = "cancelled";
+      await paymentIntent.save();
+      return res.json({ status: "cancelled", intent: paymentIntent.toJSON() });
+    }
+
+    if (paymentIntent.status === "paid") {
+      const result = await completePaymentIntent(paymentIntent._id);
+      return res.json({
+        status: "paid",
+        intent: paymentIntent.toJSON(),
+        sessions: result.sessions || [],
+      });
+    }
+
+    res.json({
+      status: paymentIntent.status,
+      intent: paymentIntent.toJSON(),
+      message: "To'lov hali tasdiqlanmagan. Bir necha soniyadan keyin qayta tekshiring.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/webhook/payme", async (req, res, next) => {
+  try {
+    const verify = getWebhookVerifier("payme");
+    const parsed = await verify(req.body);
+
+    if (!parsed.ok) {
+      return res.status(400).json({ error: { message: parsed.message } });
+    }
+
+    if (parsed.shouldComplete) {
+      await completePaymentIntent(parsed.intentId, {
+        externalTransactionId: parsed.externalTransactionId,
+        metadata: { webhook: "payme" },
+      });
+    }
+
+    res.json({ result: { allow: true } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/webhook/click", async (req, res, next) => {
+  try {
+    const verify = getWebhookVerifier("click");
+    const parsed = verify(req.body);
+
+    if (!parsed.ok) {
+      return res.status(400).json({ error_note: parsed.message });
+    }
+
+    if (parsed.shouldComplete) {
+      await completePaymentIntent(parsed.intentId, {
+        externalTransactionId: parsed.externalTransactionId,
+        metadata: { webhook: "click" },
+      });
+    }
+
+    res.json({ error_code: 0, error_note: "Success" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/webhook/uzum", async (req, res, next) => {
+  try {
+    const verify = getWebhookVerifier("uzum");
+    const parsed = verify(req.body, req.header("X-Signature"));
+
+    if (!parsed.ok) {
+      return res.status(400).json({ success: false, message: parsed.message });
+    }
+
+    if (parsed.shouldComplete) {
+      await completePaymentIntent(parsed.intentId, {
+        externalTransactionId: parsed.externalTransactionId,
+        metadata: { webhook: "uzum" },
+      });
+    }
+
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

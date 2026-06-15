@@ -1,37 +1,127 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Calendar, Crown, LogOut, Mail, Phone, Shield, Sparkles, Trophy } from "lucide-react";
-import Link from "next/link";
-import dynamic from "next/dynamic";
+import { Camera, LogOut, Phone, User } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { setApiUserId } from "@/lib/api";
 import { clearSession, getInitials, type UserSession } from "@/lib/auth";
+import { loadProfileExtras, saveProfileExtras } from "@/lib/user-storage";
 import { cn } from "@/lib/utils";
-
-const ProfileMiniScene = dynamic(
-  () => import("@/components/profile/profile-mini-scene").then((mod) => mod.ProfileMiniScene),
-  { ssr: false, loading: () => <div className="h-28 w-full animate-pulse rounded-2xl bg-cyan-500/10" /> },
-);
 
 type ProfileBoxProps = {
   session: UserSession;
   phone: string;
   onPhoneChange: (value: string) => void;
+  onAvatarChange?: (avatarUrl: string | null) => void;
   className?: string;
 };
 
-const tierColors: Record<UserSession["tier"], string> = {
-  Bronze: "from-amber-700/40 to-amber-900/20 border-amber-500/40 text-amber-200",
-  Silver: "from-slate-400/30 to-slate-700/20 border-slate-300/40 text-slate-100",
-  Gold: "from-yellow-500/35 to-amber-700/20 border-yellow-400/50 text-yellow-100",
-  Platinum: "from-cyan-400/35 to-violet-600/25 border-cyan-300/50 text-cyan-100",
-};
+function splitName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
 
-export function ProfileBox({ session, phone, onPhoneChange, className }: ProfileBoxProps) {
+async function readAvatarPreview(file: File): Promise<string> {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Rasm yuklanmadi"));
+      img.src = objectUrl;
+    });
+
+    const maxSize = 320;
+    const scale = Math.min(maxSize / image.width, maxSize / image.height, 1);
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Rasm qayta ishlanmadi");
+    }
+
+    ctx.drawImage(image, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", 0.88);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export function ProfileBox({ session, phone, onPhoneChange, onAvatarChange, className }: ProfileBoxProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const defaults = useMemo(() => splitName(session.name), [session.name]);
+  const [firstName, setFirstName] = useState(defaults.firstName);
+  const [lastName, setLastName] = useState(defaults.lastName);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
+  const profileRef = useRef({ firstName: defaults.firstName, lastName: defaults.lastName, avatarUrl: null as string | null });
+
+  useEffect(() => {
+    const saved = loadProfileExtras(session.id, {
+      firstName: defaults.firstName,
+      lastName: defaults.lastName,
+      avatarUrl: null,
+    });
+    setFirstName(saved.firstName);
+    setLastName(saved.lastName);
+    setAvatarUrl(saved.avatarUrl);
+    profileRef.current = saved;
+    onAvatarChange?.(saved.avatarUrl);
+  }, [session.id, defaults.firstName, defaults.lastName, onAvatarChange]);
+
+  useEffect(() => {
+    profileRef.current = { firstName, lastName, avatarUrl };
+  }, [firstName, lastName, avatarUrl]);
+
+  const persistProfile = useCallback(
+    (next: { firstName?: string; lastName?: string; avatarUrl?: string | null }) => {
+      const updated = {
+        firstName: next.firstName ?? profileRef.current.firstName,
+        lastName: next.lastName ?? profileRef.current.lastName,
+        avatarUrl: next.avatarUrl !== undefined ? next.avatarUrl : profileRef.current.avatarUrl,
+      };
+      profileRef.current = updated;
+      saveProfileExtras(session.id, updated);
+      if (next.firstName !== undefined) setFirstName(next.firstName);
+      if (next.lastName !== undefined) setLastName(next.lastName);
+      if (next.avatarUrl !== undefined) setAvatarUrl(next.avatarUrl);
+      if (next.avatarUrl !== undefined) onAvatarChange?.(next.avatarUrl);
+    },
+    [session.id, onAvatarChange],
+  );
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setAvatarLoading(true);
+
+    try {
+      const url = await readAvatarPreview(file);
+      persistProfile({ avatarUrl: url });
+    } catch {
+      /* rasm yuklanmadi */
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     clearSession();
@@ -39,120 +129,115 @@ export function ProfileBox({ session, phone, onPhoneChange, className }: Profile
     router.replace("/auth");
   };
 
-  const joined = new Date(session.joinedAt).toLocaleDateString("uz-UZ", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
   return (
     <article
       className={cn(
-        "relative overflow-hidden rounded-[28px] border border-violet-400/30 bg-gradient-to-br from-[#120a24]/95 via-[#0a0618]/90 to-[#05030f]/95 p-6 shadow-[0_24px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-7",
+        "relative overflow-hidden rounded-2xl border border-border-default bg-arena-surface p-6 sm:p-7",
         className,
       )}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,0.18),transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,oklch(0.78_0.14_195_/_0.08),transparent_55%)]"
       />
 
-      <div className="pointer-events-none relative mb-5 overflow-hidden rounded-2xl border border-cyan-400/20">
-        <ProfileMiniScene />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#05030f] via-transparent to-transparent"
+      <div className="relative z-10 flex flex-col items-center text-center">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={avatarLoading}
+          className={cn(
+            "group relative size-28 overflow-hidden rounded-2xl border-2 transition",
+            avatarUrl
+              ? "border-brand-cyan/50 bg-arena-overlay"
+              : "border-dashed border-brand-cyan/40 bg-brand-cyan-dim hover:border-brand-cyan/70",
+          )}
+        >
+          {avatarLoading ? (
+            <span className="text-sm font-semibold text-brand-cyan">Yuklanmoqda...</span>
+          ) : avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={avatarUrl}
+              src={avatarUrl}
+              alt="Profil rasmi"
+              className="absolute inset-0 size-full object-cover"
+            />
+          ) : (
+            <span className="text-2xl font-bold text-brand-cyan">{getInitials(`${firstName} ${lastName}`)}</span>
+          )}
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-arena-base/50 opacity-0 transition group-hover:opacity-100">
+            <Camera className="size-6 text-brand-cyan" />
+          </span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleAvatarChange}
         />
+        <p className="mt-3 text-xs text-text-muted">
+          {avatarUrl ? "Rasmni o'zgartirish uchun bosing" : "Rasm qo'shish uchun bosing"}
+        </p>
       </div>
 
-      <motion.div className="relative z-10 flex items-start gap-4">
-        <motion.div
-          className="flex size-16 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/40 bg-gradient-to-br from-cyan-500/25 to-fuchsia-600/25 text-xl font-black text-white shadow-[0_0_30px_rgba(34,211,238,0.3)]"
-          animate={{
-            boxShadow: [
-              "0 0 20px rgba(34,211,238,0.25)",
-              "0 0 36px rgba(192,38,211,0.35)",
-              "0 0 20px rgba(34,211,238,0.25)",
-            ],
-          }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          {getInitials(session.name)}
-        </motion.div>
-
-        <motion.div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-300/80">Profile Box</p>
-          <h3 className="mt-1 truncate text-2xl font-black text-white">{session.name}</h3>
-          <p className="mt-1 truncate text-sm text-violet-200/70">{session.email}</p>
-          <span
-            className={cn(
-              "mt-3 inline-flex items-center gap-1.5 rounded-full border bg-gradient-to-r px-3 py-1 text-xs font-bold uppercase tracking-wider",
-              tierColors[session.tier],
-            )}
-          >
-            <Crown className="size-3.5" />
-            {session.tier} Tier
-          </span>
-        </motion.div>
-      </motion.div>
-
-      <motion.div className="relative z-10 mt-6 grid grid-cols-2 gap-3">
-        <Stat icon={<Trophy className="size-4 text-amber-300" />} label="Loyalty" value={`${session.loyaltyPoints} XP`} />
-        <Stat icon={<Calendar className="size-4 text-cyan-300" />} label="Qo'shilgan" value={joined} />
-      </motion.div>
-
-      <motion.div className="relative z-10 mt-5 space-y-3">
+      <div className="relative z-10 mt-6 grid gap-3 sm:grid-cols-2">
         <label className="block space-y-2">
-          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-violet-200/75">
+          <span className="flex items-center gap-2 label-caps text-text-muted">
+            <User className="size-3.5" />
+            Ism
+          </span>
+          <input
+            value={firstName}
+            onChange={(event) => {
+              const value = event.target.value;
+              setFirstName(value);
+              persistProfile({ firstName: value });
+            }}
+            placeholder="Ismingiz"
+            className="h-11 w-full rounded-xl border border-border-default bg-arena-raised px-3 text-sm text-text-primary outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20"
+          />
+        </label>
+
+        <label className="block space-y-2">
+          <span className="flex items-center gap-2 label-caps text-text-muted">
+            <User className="size-3.5" />
+            Familiya
+          </span>
+          <input
+            value={lastName}
+            onChange={(event) => {
+              const value = event.target.value;
+              setLastName(value);
+              persistProfile({ lastName: value });
+            }}
+            placeholder="Familiyangiz"
+            className="h-11 w-full rounded-xl border border-border-default bg-arena-raised px-3 text-sm text-text-primary outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20"
+          />
+        </label>
+      </div>
+
+      <div className="relative z-10 mt-5">
+        <label className="block space-y-2">
+          <span className="flex items-center gap-2 label-caps text-text-muted">
             <Phone className="size-3.5" />
             Telefon
           </span>
           <input
             value={phone}
             onChange={(event) => onPhoneChange(event.target.value)}
-            className="h-11 w-full rounded-xl border border-violet-500/35 bg-[#181425]/80 px-3 text-sm text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/25"
+            className="h-11 w-full rounded-xl border border-border-default bg-arena-raised px-3 text-sm text-text-primary outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/20"
           />
         </label>
+      </div>
 
-        <motion.div className="flex items-center gap-2 rounded-xl border border-violet-500/25 bg-white/5 px-3 py-2.5 text-sm text-violet-100/80">
-          <Mail className="size-4 shrink-0 text-fuchsia-300" />
-          <span className="truncate">{session.email}</span>
-        </motion.div>
-      </motion.div>
-
-      <motion.div className="relative z-10 mt-6 flex flex-wrap gap-3">
-        {session.role === "admin" ? (
-          <Button type="button" className="w-full" asChild>
-            <Link href="/admin">
-              <Shield className="size-4" />
-              Adminga o&apos;tish
-            </Link>
-          </Button>
-        ) : null}
-        <Button type="button" className="flex-1">
-          <Sparkles className="size-4" />
-          Bonuslarni ko&apos;rish
-        </Button>
-        <Button type="button" variant="secondary" onClick={handleLogout}>
+      <div className="relative z-10 mt-6">
+        <Button type="button" variant="secondary" className="w-full" onClick={handleLogout}>
           <LogOut className="size-4" />
           Chiqish
         </Button>
-      </motion.div>
+      </div>
     </article>
-  );
-}
-
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <motion.div
-      className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3"
-      whileHover={{ scale: 1.02, borderColor: "rgba(34,211,238,0.35)" }}
-    >
-      <motion.div className="flex items-center gap-2 text-violet-200/70">
-        {icon}
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{label}</span>
-      </motion.div>
-      <p className="mt-1 text-sm font-bold text-white">{value}</p>
-    </motion.div>
   );
 }

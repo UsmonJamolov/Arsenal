@@ -32,6 +32,7 @@ export type Booking = {
   durationHours: number;
   price: number;
   status: BookingStatus;
+  createdAt?: string;
 };
 
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
@@ -58,7 +59,7 @@ export type OrderRecord = {
 
 export type DeviceZone = "ps" | "pc";
 
-export type TabKey = "home" | "devices" | "booking" | "hookah" | "cart" | "payment" | "profile";
+export type TabKey = "home" | "devices" | "hookah" | "cart" | "payment" | "profile";
 
 export const DEVICE_BASE: Device[] = [
   { id: "ps5-01", name: "PS5 01", type: "PS Zona", pricePerHour: 45000, status: "available" },
@@ -116,10 +117,61 @@ export function filterDevicesByZone(devices: Device[], zone: DeviceZone) {
   return devices.filter((device) => (zone === "ps" ? isPsDevice(device) : isPcDevice(device)));
 }
 
+export const PC_DEVICE_IMAGES = [
+  "/devices/pc-setup-1.png",
+  "/devices/pc-setup-2.png",
+  "/devices/pc-setup-1.png",
+  "/devices/pc-setup-2.png",
+] as const;
+
+export const PC_THUMB_IMAGE = "/devices/pc-setup-2.png";
+
+export const PC_HERO_IMAGE = "/devices/pc-setup-2.png";
+
+export const PC_PROMO_IMAGE = "/devices/pc-promo.png";
+
+export const PC_SPEC_ITEMS = [
+  { title: "RTX 3060", detail: "8GB GDDR6" },
+  { title: "Intel i5-12400F", detail: "6 Core / 12 Threads" },
+  { title: "16GB RAM", detail: "DDR4 3200MHz" },
+  { title: "144Hz Monitor", detail: "1ms Response Time" },
+  { title: "Mechanical KB", detail: "RGB Backlight" },
+  { title: "Premium Headset", detail: "7.1 Surround Sound" },
+] as const;
+
+export function getPcDeviceImage(index: number) {
+  return PC_DEVICE_IMAGES[index % PC_DEVICE_IMAGES.length];
+}
+
+export function getPcThumbImage() {
+  return PC_THUMB_IMAGE;
+}
+
+export const PS_DEVICE_IMAGES = [
+  "/devices/ps-01.png",
+  "/devices/ps-02.png",
+  "/devices/ps-03.png",
+] as const;
+
+export const PS_BOOKING_HERO = "/devices/ps-booking-hero.png";
+
+export const PS_STATION_META = [
+  { seats: 4, display: "4K HDR" },
+  { seats: 3, display: "4K HDR" },
+  { seats: 4, display: "4K HDR" },
+] as const;
+
+export function getPsDeviceImage(index: number) {
+  return PS_DEVICE_IMAGES[index % PS_DEVICE_IMAGES.length];
+}
+
+export function getPsStationMeta(index: number) {
+  return PS_STATION_META[index % PS_STATION_META.length];
+}
+
 export const TABS: { key: TabKey; label: string }[] = [
   { key: "home", label: "Bosh sahifa" },
   { key: "devices", label: "Qurilmalar" },
-  { key: "booking", label: "Bron" },
   { key: "hookah", label: "Kalyan" },
   { key: "cart", label: "Savat" },
   { key: "payment", label: "To'lov" },

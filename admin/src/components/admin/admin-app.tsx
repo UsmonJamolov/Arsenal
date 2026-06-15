@@ -15,7 +15,6 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 
@@ -29,6 +28,7 @@ import { clearAdminSession, getAdminSession, type AdminSession } from "@/lib/adm
 import { formatCurrency } from "@/lib/format";
 import {
   type DeviceZone,
+  type DeviceStatus,
   filterDevicesByZone,
   STATUS_LABEL,
   TABLE_STATUS_LABEL,
@@ -36,12 +36,14 @@ import {
 import { subscribeClubUpdates } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
+const USER_APP_URL = process.env.NEXT_PUBLIC_USER_APP_URL || "http://localhost:3000";
+
 /** Admin kartochkalari — asosiy qora fonda ajralib turishi uchun */
 function AdminCard({ className, ...props }: ComponentProps<typeof Card>) {
   return (
     <Card
       className={cn(
-        "border-amber-500/40 bg-[#2a2450] shadow-[0_8px_32px_rgba(0,0,0,0.35)]",
+        "border-brand-gold/35 bg-arena-surface shadow-none",
         className,
       )}
       {...props}
@@ -121,7 +123,7 @@ type DashboardStats = {
 };
 
 type UserRow = { id: string; name: string; phone: string; email: string; tier: string; loyaltyPoints: number; role: string };
-type DeviceRow = { id: string; name: string; type: string; pricePerHour: number; status: string };
+type DeviceRow = { id: string; name: string; type: string; pricePerHour: number; status: DeviceStatus };
 type TableRow = { id: string; title: string; status: string };
 type FlavorRow = { id: string; title: string; price: number };
 type BookingRow = {
@@ -197,7 +199,7 @@ export function AdminApp() {
   useEffect(() => {
     const session = getAdminSession();
     if (!session) {
-      router.replace("/admin/login");
+      router.replace("/login");
       return;
     }
     setAdmin(session);
@@ -214,7 +216,8 @@ export function AdminApp() {
 
     return subscribeClubUpdates((event) => {
       if (event.message) {
-        setNotifications((prev) => [event.message, ...prev.slice(0, 9)]);
+        const message = event.message;
+        setNotifications((prev) => [message, ...prev.slice(0, 9)]);
       }
       loadData(true);
     });
@@ -222,22 +225,22 @@ export function AdminApp() {
 
   const handleLogout = () => {
     clearAdminSession();
-    router.replace("/admin/login");
+    router.replace("/login");
   };
 
   if (!ready || !admin) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#1a1630] text-white">
-        <p className="animate-pulse text-sm font-semibold text-amber-200">Admin yuklanmoqda...</p>
+      <main className="flex min-h-screen items-center justify-center bg-admin-base text-text-primary">
+        <p className="animate-pulse text-sm font-semibold text-brand-gold">Admin yuklanmoqda...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#1a1630] text-white">
+    <main className="min-h-screen bg-admin-base text-text-primary">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-b border-amber-500/30 bg-[#221c42] p-4 lg:hidden">
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-amber-300/80">Admin — {admin.name}</p>
+        <aside className="flex w-full shrink-0 flex-col border-b border-brand-gold/25 bg-admin-sidebar p-4 lg:hidden">
+          <p className="label-caps text-brand-gold">Admin — {admin.name}</p>
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {TABS.map((item) => (
               <button
@@ -246,7 +249,7 @@ export function AdminApp() {
                 onClick={() => setTab(item.key)}
                 className={cn(
                   "shrink-0 rounded-lg px-3 py-2 text-xs font-semibold",
-                  tab === item.key ? "bg-amber-500/25 text-amber-100" : "bg-white/5 text-violet-200/80",
+                  tab === item.key ? "bg-brand-gold-dim text-brand-gold" : "bg-arena-overlay/50 text-text-muted",
                 )}
               >
                 {item.label}
@@ -255,10 +258,10 @@ export function AdminApp() {
           </nav>
         </aside>
 
-        <aside className="hidden w-64 shrink-0 flex-col border-r border-amber-500/30 bg-[#221c42] p-5 lg:flex">
-          <p className="text-xs font-bold uppercase tracking-[0.4em] text-amber-300/80">Admin</p>
-          <h1 className="mt-2 text-xl font-black">Arsenal Union</h1>
-          <p className="mt-1 truncate text-sm text-violet-200/60">{admin.name}</p>
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-brand-gold/25 bg-admin-sidebar p-5 lg:flex">
+          <p className="label-caps text-brand-gold">Admin</p>
+          <h1 className="mt-2 text-xl font-bold text-text-primary">Arsenal Union</h1>
+          <p className="mt-1 truncate text-sm text-text-muted">{admin.name}</p>
 
           <nav className="mt-8 space-y-1">
             {TABS.map((item) => (
@@ -280,9 +283,12 @@ export function AdminApp() {
           </nav>
 
           <div className="mt-auto space-y-2 pt-6">
-            <Link href="/" className="block rounded-xl border border-violet-500/30 px-3 py-2 text-center text-sm text-violet-200 hover:bg-white/5">
+            <a
+              href={USER_APP_URL}
+              className="block rounded-xl border border-violet-500/30 px-3 py-2 text-center text-sm text-violet-200 hover:bg-white/5"
+            >
               Saytga qaytish
-            </Link>
+            </a>
             <Button type="button" variant="secondary" className="w-full" onClick={handleLogout}>
               <LogOut className="size-4" />
               Chiqish
@@ -296,7 +302,7 @@ export function AdminApp() {
               <p className="text-xs font-bold uppercase tracking-[0.35em] text-amber-300/80">{TABS.find((t) => t.key === tab)?.label}</p>
               <h2 className="text-3xl font-black">Boshqaruv paneli</h2>
             </div>
-            <Button type="button" variant="secondary" onClick={loadData} disabled={loading}>
+            <Button type="button" variant="secondary" onClick={() => loadData()} disabled={loading}>
               <RefreshCw className={cn("size-4", loading && "animate-spin")} />
               Yangilash
             </Button>

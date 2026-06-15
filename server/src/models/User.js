@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
       default: "Gold",
     },
     loyaltyPoints: { type: Number, default: 120 },
+    telegramChatId: { type: String, default: "" },
     role: {
       type: String,
       enum: ["user", "admin"],

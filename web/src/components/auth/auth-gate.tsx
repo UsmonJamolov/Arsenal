@@ -22,10 +22,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#07050f] text-cyan-200">
+      <div className="arena-bg flex min-h-screen items-center justify-center text-brand-cyan">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-cyan-400/30 border-t-cyan-300" />
-          <p className="text-sm font-semibold tracking-[0.3em] uppercase">Yuklanmoqda...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-brand-cyan/25 border-t-brand-cyan" />
+          <p className="label-caps">Yuklanmoqda...</p>
         </div>
       </div>
     );

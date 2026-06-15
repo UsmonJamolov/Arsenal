@@ -28,7 +28,7 @@ export function AdminLogin() {
       });
 
       saveAdminSession(data.admin);
-      router.replace("/admin");
+      router.replace("/");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Xatolik");
     } finally {
@@ -37,38 +37,42 @@ export function AdminLogin() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#1a1630] px-4">
+    <main className="arena-bg flex min-h-screen items-center justify-center px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md space-y-5 rounded-3xl border border-amber-500/30 bg-black/40 p-8 backdrop-blur-xl"
+        className="w-full max-w-md space-y-5 rounded-2xl border border-brand-gold/25 bg-arena-raised/90 p-8 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-300">
+          <div className="flex size-12 items-center justify-center rounded-xl border border-brand-gold/30 bg-brand-gold-dim text-brand-gold">
             <Shield className="size-6" />
           </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.35em] text-amber-300/80">Arsenal Union</p>
-            <h1 className="text-2xl font-black text-white">Admin Panel</h1>
+            <p className="label-caps text-brand-gold">Arsenal Union</p>
+            <h1 className="text-2xl font-bold text-text-primary">Admin Panel</h1>
           </div>
         </div>
 
         <label className="block space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-violet-200/70">Telefon</span>
+          <span className="label-caps">Telefon</span>
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
         </label>
 
         <label className="block space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-violet-200/70">Parol</span>
+          <span className="label-caps">Parol</span>
           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
 
-        {error ? <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p> : null}
+        {error ? (
+          <p className="rounded-xl border border-status-busy/40 bg-status-busy/10 px-3 py-2 text-sm text-status-busy">
+            {error}
+          </p>
+        ) : null}
 
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" variant="gold" className="w-full" disabled={loading}>
           {loading ? "Kirish..." : "Admin panelga kirish"}
         </Button>
 
-        <p className="text-center text-xs text-violet-300/50">Default: +998901111111 / admin1234</p>
+        <p className="text-center text-xs text-text-faint">Default: +998901111111 / admin1234</p>
       </form>
     </main>
   );

@@ -3,11 +3,15 @@
 import {
   Activity,
   ArrowLeft,
-  Bell,
   ChevronRight,
+  Clock,
+  Cpu,
   CreditCard,
   Gamepad2,
+  HardDrive,
+  Headphones,
   History,
+  Keyboard,
   Monitor,
   ShoppingCart,
   Wifi,
@@ -15,16 +19,16 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MobileBottomNav } from "@/components/game-club/mobile-bottom-nav";
+import { PsZonePanel } from "@/components/game-club/ps-zone-panel";
 import { StationUnlockPanel, type ClubSession } from "@/components/game-club/station-unlock-panel";
 import { ProfileBox } from "@/components/profile/profile-box";
-import { getInitials, getSession, type UserSession } from "@/lib/auth";
+import { getSession, type UserSession } from "@/lib/auth";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PressButton } from "@/components/ui/press-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BOOKING_STATUS_LABEL,
@@ -36,9 +40,13 @@ import {
   type DeviceStatus,
   type DeviceZone,
   filterDevicesByZone,
+  getPcThumbImage,
   type HookahFlavor,
   type OrderRecord,
   ORDER_TYPE_LABEL,
+  PC_PROMO_IMAGE,
+  PC_HERO_IMAGE,
+  PC_SPEC_ITEMS,
   type PaymentMethod,
   PAYMENT_METHODS,
   STATUS_LABEL,
@@ -48,7 +56,7 @@ import {
   TABS,
 } from "@/lib/game-club-data";
 import { apiRequest, setApiUserId } from "@/lib/api";
-import { clearPendingSessions, loadPendingSessions, savePendingSessions } from "@/lib/user-storage";
+import { clearPendingSessions, loadPendingSessions, loadProfileExtras, savePendingSessions } from "@/lib/user-storage";
 import { formatCurrency } from "@/lib/format";
 import {
   subscribeClubUpdates,
@@ -79,14 +87,17 @@ export function GameClubApp() {
   const [selectedTableId, setSelectedTableId] = useState("");
   const [selectedFlavorId, setSelectedFlavorId] = useState("");
   const [hookahLoading, setHookahLoading] = useState(false);
+  const [hookahStartHour, setHookahStartHour] = useState("13:00");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Payme");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "paid">("pending");
-  const [notifications, setNotifications] = useState(["Xush kelibsiz! Bugun maxsus bonuslar mavjud."]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>("connecting");
   const [pendingSessions, setPendingSessions] = useState<ClubSession[]>([]);
   const [lastPaymentTotal, setLastPaymentTotal] = useState<number | null>(null);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = getSession();
@@ -94,6 +105,7 @@ export function GameClubApp() {
       setSession(stored);
       setPhone(stored.phone);
       setApiUserId(stored.id);
+      setPendingSessions(loadPendingSessions(stored.id));
     }
   }, []);
 
@@ -163,10 +175,17 @@ export function GameClubApp() {
       setBookings([]);
       setCart([]);
       setPaymentStatus("pending");
+      setProfileAvatarUrl(null);
       return;
     }
 
     setPendingSessions(loadPendingSessions<ClubSession>(session.id));
+    const profileExtras = loadProfileExtras(session.id, {
+      firstName: session.name.split(" ")[0] ?? "",
+      lastName: session.name.split(" ").slice(1).join(" "),
+      avatarUrl: null,
+    });
+    setProfileAvatarUrl(profileExtras.avatarUrl);
     await Promise.all([loadPaymentHistory(), loadBookings(), refreshCart()]);
   }, [session?.id, loadPaymentHistory, loadBookings]);
 
@@ -177,7 +196,7 @@ export function GameClubApp() {
         await Promise.all([loadDevices(), loadHookahCatalog()]);
         await syncUserContext();
       } catch {
-        setNotifications((prev) => ["Ma'lumotlar yuklanmadi. Server ishlayotganini tekshiring.", ...prev.slice(0, 3)]);
+        /* ma'lumotlar yuklanmadi */
       } finally {
         setDevicesLoading(false);
       }
@@ -209,10 +228,6 @@ export function GameClubApp() {
       entity === "all" || targets.includes(entity);
 
     const unsubscribe = subscribeClubUpdates(async (event) => {
-      if (event.message) {
-        setNotifications((prev) => [event.message, ...prev.slice(0, 3)]);
-      }
-
       try {
         if (shouldRefresh(event.entity, ["devices", "bookings"])) {
           await loadDevices();
@@ -234,22 +249,34 @@ export function GameClubApp() {
     return unsubscribe;
   }, [loadDevices, loadHookahCatalog, loadBookings]);
 
-  const selectedDevice = devices.find((device) => device.id === selectedDeviceId);
-  const bookingPrice = selectedDevice ? selectedDevice.pricePerHour * durationHours : 0;
-  const grandTotal = useMemo(() => sumPrice(cart), [cart]);
-
-  const pushNotification = (message: string) => {
-    setNotifications((prev) => [message, ...prev.slice(0, 3)]);
-  };
-
-  const createBooking = async () => {
-    if (!session?.id) {
-      pushNotification("Bron uchun avval tizimga kiring.");
+  useEffect(() => {
+    if (deviceZone !== "pc") {
       return;
     }
 
-    if (!selectedDeviceId) {
-      pushNotification("Qurilma tanlanmagan.");
+    const pcs = filterDevicesByZone(devices, "pc");
+    if (!pcs.length) {
+      return;
+    }
+
+    if (!pcs.some((device) => device.id === selectedDeviceId)) {
+      setSelectedDeviceId(pcs[0].id);
+    }
+  }, [deviceZone, devices, selectedDeviceId]);
+
+  const zoneDevices = deviceZone ? filterDevicesByZone(devices, deviceZone) : [];
+  const selectedZoneDevice =
+    zoneDevices.find((device) => device.id === selectedDeviceId) ?? zoneDevices[0];
+  const selectedDevice = selectedZoneDevice ?? devices.find((device) => device.id === selectedDeviceId);
+  const bookingPrice = selectedZoneDevice
+    ? selectedZoneDevice.pricePerHour * durationHours
+    : selectedDevice
+      ? selectedDevice.pricePerHour * durationHours
+      : 0;
+  const grandTotal = useMemo(() => sumPrice(cart), [cart]);
+
+  const createBooking = async () => {
+    if (!session?.id || !selectedDeviceId) {
       return;
     }
 
@@ -266,14 +293,13 @@ export function GameClubApp() {
 
       await Promise.all([loadBookings(), loadDevices(), refreshCart()]);
       setActiveTab("cart");
-    } catch (error) {
-      pushNotification(error instanceof Error ? error.message : "Bron qo'shilmadi.");
+    } catch {
+      /* bron qo'shilmadi */
     }
   };
 
   const addHookahToCart = async () => {
-    if (!selectedFlavorId || !selectedTableId) {
-      pushNotification("Stol va ta'mni tanlang.");
+    if (!selectedFlavorId || !selectedTableId || !hookahStartHour.trim()) {
       return;
     }
 
@@ -281,51 +307,56 @@ export function GameClubApp() {
     try {
       await apiRequest("/api/hookah/orders", {
         method: "POST",
-        body: JSON.stringify({ flavorId: selectedFlavorId, tableId: selectedTableId }),
+        body: JSON.stringify({
+          flavorId: selectedFlavorId,
+          tableId: selectedTableId,
+          startHour: hookahStartHour.trim(),
+        }),
       });
       await refreshCart();
       setActiveTab("cart");
-    } catch (error) {
-      pushNotification(error instanceof Error ? error.message : "Buyurtma qo'shilmadi.");
+    } catch {
+      /* buyurtma qo'shilmadi */
     } finally {
       setHookahLoading(false);
     }
   };
 
   const payNow = async () => {
-    if (!session?.id) {
-      pushNotification("To'lov uchun avval tizimga kiring.");
+    if (!session?.id || !cart.length) {
       return;
     }
 
-    if (!cart.length) {
-      pushNotification("Savat bo'sh: avval mahsulot yoki bron qo'shing.");
-      return;
-    }
+    setPaymentLoading(true);
+    setPaymentError(null);
 
     try {
       const result = await apiRequest<{
+        intentId: string;
         status: string;
         total: number;
-        sessions: ClubSession[];
-      }>("/api/payments", {
+        checkoutUrl: string;
+        mode: "sandbox" | "live";
+        provider: string;
+      }>("/api/payments/checkout", {
         method: "POST",
-        body: JSON.stringify({ method: paymentMethod, userId: session?.id }),
+        body: JSON.stringify({ method: paymentMethod, userId: session.id }),
       });
 
-      if (result.sessions?.length && session?.id) {
-        setPendingSessions(result.sessions);
-        savePendingSessions(session.id, result.sessions);
-        const pins = result.sessions.map((s) => `${s.deviceName}: ${s.unlockPin}`).join(" | ");
-        pushNotification(`To'lov OK! Stansiya PIN: ${pins}`);
-      } else {
-        pushNotification(`To'lov muvaffaqiyatli! Jami: ${formatCurrency(result.total)} (${paymentMethod})`);
+      if (!result.checkoutUrl) {
+        setPaymentError("To'lov havolasi qaytmadi");
+        return;
       }
 
-      setPaymentStatus("paid");
-      await Promise.all([loadDevices(), loadPaymentHistory(), refreshCart()]);
+      const checkoutUrl = result.checkoutUrl.startsWith("/")
+        ? `${window.location.origin}${result.checkoutUrl}`
+        : result.checkoutUrl;
+
+      window.location.href = checkoutUrl;
     } catch (error) {
-      pushNotification(error instanceof Error ? error.message : "To'lov amalga oshmadi.");
+      setPaymentError(error instanceof Error ? error.message : "To'lov boshlanmadi");
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -347,14 +378,13 @@ export function GameClubApp() {
         return next;
       });
       await Promise.all([loadBookings(), loadDevices(), refreshCart()]);
-      pushNotification("Bron bekor qilindi.");
-    } catch (error) {
-      pushNotification(error instanceof Error ? error.message : "Bron bekor qilinmadi.");
+    } catch {
+      /* bron bekor qilinmadi */
     }
   };
 
   const cancelSessionById = async (sessionId: string, deviceId?: string) => {
-    if (!confirm("Sessiyani/vaqtni bekor qilasizmi? Stansiya qulflanadi.")) {
+    if (!confirm("Sessiyani/vaqtni bekor qilasizmi? Qurilma qulflanadi.")) {
       return;
     }
 
@@ -371,9 +401,8 @@ export function GameClubApp() {
         return next;
       });
       await Promise.all([loadBookings(), loadDevices(), refreshCart()]);
-      pushNotification("Sessiya bekor qilindi.");
-    } catch (error) {
-      pushNotification(error instanceof Error ? error.message : "Sessiya bekor qilinmadi.");
+    } catch {
+      /* sessiya bekor qilinmadi */
     }
   };
 
@@ -382,22 +411,18 @@ export function GameClubApp() {
       await apiRequest("/api/cart", { method: "DELETE" });
       setCart([]);
       setPaymentStatus("pending");
-      pushNotification("Savat tozalandi.");
-    } catch (error) {
-      pushNotification(error instanceof Error ? error.message : "Savat tozalanmadi.");
+    } catch {
+      /* savat tozalanmadi */
     }
   };
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#07050f] text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),radial-gradient(circle_at_80%_0%,rgba(192,38,211,0.2),transparent_34%)]" />
+    <main className="arena-bg min-h-screen overflow-hidden text-text-primary">
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 pb-24 sm:px-6 md:pb-6 lg:px-8">
         <Header
           cartCount={cart.length}
           liveStatus={liveStatus}
           paymentStatus={paymentStatus}
-          session={session}
-          onOpenProfile={() => setActiveTab("profile")}
         />
         <TabsList className="mt-6 hidden md:grid">
           {TABS.map((tab) => (
@@ -412,12 +437,16 @@ export function GameClubApp() {
           ))}
         </TabsList>
 
-        <section className="grid flex-1 gap-5 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section
+          className={cn(
+            "grid flex-1 gap-5 py-6",
+            activeTab === "home" && "lg:grid-cols-[minmax(0,1fr)_360px]",
+          )}
+        >
           <div className="space-y-5">
             {activeTab === "home" && (
               <HomePanel
                 devices={devices}
-                notifications={notifications}
                 onOpenDevices={() => setActiveTab("devices")}
               />
             )}
@@ -429,27 +458,35 @@ export function GameClubApp() {
                   pcCount={filterDevicesByZone(devices, "pc").length}
                   onSelect={setDeviceZone}
                 />
-              ) : (
-                <DeviceZoneListPanel
-                  zone={deviceZone}
-                  devices={filterDevicesByZone(devices, deviceZone)}
+              ) : deviceZone === "pc" ? (
+                <PcZonePanel
+                  devices={filterDevicesByZone(devices, "pc")}
                   loading={devicesLoading}
                   selectedDeviceId={selectedDeviceId}
+                  bookingPrice={bookingPrice}
+                  durationHours={durationHours}
+                  startHour={startHour}
                   onBack={() => setDeviceZone(null)}
                   onSelect={setSelectedDeviceId}
+                  setDurationHours={setDurationHours}
+                  setStartHour={setStartHour}
+                  onCreateBooking={createBooking}
+                />
+              ) : (
+                <PsZonePanel
+                  devices={filterDevicesByZone(devices, "ps")}
+                  loading={devicesLoading}
+                  selectedDeviceId={selectedDeviceId}
+                  bookingPrice={bookingPrice}
+                  durationHours={durationHours}
+                  startHour={startHour}
+                  onBack={() => setDeviceZone(null)}
+                  onSelect={setSelectedDeviceId}
+                  setDurationHours={setDurationHours}
+                  setStartHour={setStartHour}
+                  onCreateBooking={createBooking}
                 />
               ))}
-            {activeTab === "booking" && (
-              <BookingPanel
-                bookingPrice={bookingPrice}
-                durationHours={durationHours}
-                selectedDevice={selectedDevice}
-                setDurationHours={setDurationHours}
-                setStartHour={setStartHour}
-                startHour={startHour}
-                onCreateBooking={createBooking}
-              />
-            )}
             {activeTab === "hookah" && (
               <HookahPanel
                 flavors={hookahFlavors}
@@ -457,8 +494,10 @@ export function GameClubApp() {
                 loading={hookahLoading}
                 selectedFlavorId={selectedFlavorId}
                 selectedTableId={selectedTableId}
+                startHour={hookahStartHour}
                 setSelectedFlavorId={setSelectedFlavorId}
                 setSelectedTableId={setSelectedTableId}
+                setStartHour={setHookahStartHour}
                 onAddHookah={addHookahToCart}
               />
             )}
@@ -468,7 +507,6 @@ export function GameClubApp() {
                 grandTotal={grandTotal}
                 onClearCart={clearCart}
                 onOpenPayment={() => setActiveTab("payment")}
-                onCancelBooking={cancelBookingById}
                 onRemoveCartItem={async (item) => {
                   if (item.type === "booking") {
                     await cancelBookingById(item.id);
@@ -477,9 +515,8 @@ export function GameClubApp() {
                   try {
                     await apiRequest(`/api/cart/${item.id}`, { method: "DELETE" });
                     await refreshCart();
-                    pushNotification("Savatdan olib tashlandi.");
-                  } catch (error) {
-                    pushNotification(error instanceof Error ? error.message : "O'chirib bo'lmadi.");
+                  } catch {
+                    /* o'chirib bo'lmadi */
                   }
                 }}
               />
@@ -487,10 +524,10 @@ export function GameClubApp() {
             {activeTab === "payment" && (
               <PaymentPanel
                 cart={cart}
-                paidOrders={paidOrders}
                 grandTotal={grandTotal}
                 paymentMethod={paymentMethod}
-                paymentStatus={paymentStatus}
+                paymentLoading={paymentLoading}
+                paymentError={paymentError}
                 setPaymentMethod={setPaymentMethod}
                 onPayNow={payNow}
                 pendingSessions={pendingSessions}
@@ -507,27 +544,34 @@ export function GameClubApp() {
             {activeTab === "profile" && session && (
               <ProfilePanel
                 bookings={bookings}
+                paidOrders={paidOrders}
                 phone={phone}
                 session={session}
                 setPhone={setPhone}
+                onAvatarChange={setProfileAvatarUrl}
                 onCancelBooking={cancelBookingById}
               />
             )}
           </div>
 
-          <AsidePanel
-            bookings={bookings}
-            cart={cart}
-            devices={devices}
-            paidOrders={paidOrders}
-            lastPaymentTotal={lastPaymentTotal}
-            grandTotal={grandTotal}
-            notifications={notifications}
-            onOpenCart={() => setActiveTab("cart")}
-          />
+          {activeTab === "home" ? (
+            <AsidePanel
+              bookings={bookings}
+              cart={cart}
+              devices={devices}
+              lastPaymentTotal={lastPaymentTotal}
+              grandTotal={grandTotal}
+              onOpenCart={() => setActiveTab("cart")}
+            />
+          ) : null}
         </section>
 
-        <MobileBottomNav activeTab={activeTab} cartCount={cart.length} onChange={setActiveTab} />
+        <MobileBottomNav
+          activeTab={activeTab}
+          cartCount={cart.length}
+          profileAvatarUrl={profileAvatarUrl}
+          onChange={setActiveTab}
+        />
       </div>
     </main>
   );
@@ -537,31 +581,32 @@ function Header({
   cartCount,
   liveStatus,
   paymentStatus,
-  session,
-  onOpenProfile,
 }: {
   cartCount: number;
   liveStatus: LiveStatus;
   paymentStatus: "pending" | "paid";
-  session: UserSession | null;
-  onOpenProfile: () => void;
 }) {
   return (
-    <header className="flex flex-col gap-4 rounded-3xl border border-violet-500/30 bg-black/25 p-5 backdrop-blur md:flex-row md:items-center md:justify-between">
+    <header className="flex flex-col gap-4 rounded-2xl border border-border-strong/50 bg-arena-surface p-5 shadow-[0_10px_32px_oklch(0_0_0_/_0.24)] md:flex-row md:items-center md:justify-between">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.45em] text-cyan-200/80">Arsenal Union</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-cyan-200 sm:text-5xl">GAME CLUB</h1>
-        <p className="mt-2 max-w-2xl text-sm text-violet-100/70">
-          Socket.IO orqali admin va mijoz bir vaqtda yangilanadi.
+        <div className="flex items-center gap-2">
+          <span className="inline-flex size-2 rounded-full bg-brand-gold" aria-hidden />
+          <p className="label-caps text-brand-gold">Arsenal Union</p>
+        </div>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-text-primary sm:text-4xl">
+          Game Club
+        </h1>
+        <p className="mt-2 max-w-xl text-sm text-text-secondary">
+          Bron qiling, to&apos;lang va qurilmangizni oching — hammasi bir joyda.
         </p>
         <p
           className={cn(
-            "mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
+            "mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
             liveStatus === "connected"
-              ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-300"
+              ? "border-status-available/40 bg-status-available/10 text-status-available"
               : liveStatus === "connecting"
-                ? "border-amber-400/40 bg-amber-500/10 text-amber-200"
-                : "border-violet-400/30 bg-violet-500/10 text-violet-200/80",
+                ? "border-status-booked/40 bg-status-booked/10 text-status-booked"
+                : "border-border-default bg-arena-overlay/50 text-text-muted",
           )}
         >
           <Wifi className="size-3" />
@@ -572,29 +617,13 @@ function Header({
               : "Live o'chiq (sahifa ishlaydi)"}
         </p>
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {session ? (
-          <button
-            type="button"
-            onClick={onOpenProfile}
-            className={cn(
-              touchPress,
-              "flex items-center gap-3 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2.5 text-left hover:border-cyan-300/50 hover:bg-cyan-500/15 active:border-cyan-200 active:bg-cyan-500/25",
-            )}
-          >
-            <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/30 to-fuchsia-600/30 text-sm font-black">
-              {getInitials(session.name)}
-            </span>
-            <span>
-              <span className="block text-xs uppercase tracking-wider text-violet-200/60">Profil</span>
-              <span className="block text-sm font-bold text-white">{session.name}</span>
-            </span>
-          </button>
-        ) : null}
-        <div className="grid grid-cols-2 gap-3 sm:min-w-72">
-          <MiniStat label="Savat" value={`${cartCount} ta`} icon={<ShoppingCart className="size-4" />} />
-          <MiniStat label="To'lov" value={paymentStatus === "paid" ? "Paid" : "Pending"} icon={<CreditCard className="size-4" />} />
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:min-w-64">
+        <MiniStat label="Savat" value={`${cartCount} ta`} icon={<ShoppingCart className="size-4" />} />
+        <MiniStat
+          label="To'lov"
+          value={paymentStatus === "paid" ? "To'langan" : "Kutilmoqda"}
+          icon={<CreditCard className="size-4" />}
+        />
       </div>
     </header>
   );
@@ -602,38 +631,35 @@ function Header({
 
 function HomePanel({
   devices,
-  notifications,
   onOpenDevices,
 }: {
   devices: Device[];
-  notifications: string[];
   onOpenDevices: () => void;
 }) {
   const freeDevices = devices.filter((device) => device.status === "available").length;
 
   return (
     <>
-      <Card className="bg-gradient-to-br from-cyan-500/15 via-violet-500/10 to-fuchsia-500/15 p-8 text-center">
-        <p className="text-sm font-bold uppercase tracking-[0.35em] text-cyan-200">O&apos;yinlar olamiga xush kelibsiz</p>
-        <h2 className="mt-4 text-5xl font-black tracking-tight text-white sm:text-7xl">GAME CLUB</h2>
-        <p className="mx-auto mt-4 max-w-2xl text-violet-100/75">
-          Bron, kalyan buyurtma va admin o&apos;zgarishlari avtomatik yangilanadi — qo&apos;lda yangilash shart emas.
+      <Card className="overflow-hidden border-brand-gold/35 bg-gradient-to-br from-brand-gold-dim via-arena-surface to-arena-overlay p-8 text-center shadow-[0_12px_36px_oklch(0_0_0_/_0.28)]">
+        <p className="label-caps text-brand-gold">O&apos;yinlar olamiga xush kelibsiz</p>
+        <h2 className="mt-4 text-4xl font-black tracking-tight text-text-primary sm:text-5xl">
+          Game Club
+        </h2>
+        <p className="mx-auto mt-4 max-w-lg text-text-secondary">
+          PS va PC qurilmalarini bron qiling, kalyan buyurtma bering va onlayn to&apos;lang.
         </p>
         <div className="mt-6 flex justify-center">
-          <Button variant="secondary" onClick={onOpenDevices}>
+          <Button variant="accent" size="lg" onClick={onOpenDevices}>
             <Gamepad2 className="size-4" />
             Qurilmalarni ko&apos;rish
           </Button>
         </div>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <MiniStat label="Bo'sh qurilmalar" value={`${freeDevices}/${devices.length}`} icon={<Activity className="size-4" />} />
         <MiniStat label="To'lov usullari" value="3 ta" icon={<CreditCard className="size-4" />} />
-        <MiniStat label="Real-time" value="Socket.IO" icon={<Wifi className="size-4" />} />
       </div>
-
-      <NotificationsCard notifications={notifications} />
     </>
   );
 }
@@ -657,21 +683,24 @@ function DeviceZonePicker({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-violet-200/70">Yuklanmoqda...</p>
+          <p className="text-sm text-text-muted">Yuklanmoqda...</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => onSelect("ps")}
-              className="group relative overflow-hidden rounded-3xl border border-cyan-400/35 bg-gradient-to-br from-cyan-500/20 via-violet-900/40 to-[#0a0618] p-6 text-left transition hover:border-cyan-300/60 hover:shadow-[0_0_40px_rgba(34,211,238,0.25)]"
+              className={cn(
+                touchPress,
+                "group relative overflow-hidden rounded-2xl border border-brand-cyan/30 bg-brand-cyan-dim p-6 text-left hover:border-brand-cyan/50 active:bg-brand-cyan/20",
+              )}
             >
               <div className="flex items-center justify-between">
-                <Gamepad2 className="size-10 text-cyan-200" />
-                <ChevronRight className="size-5 text-cyan-200/60 transition group-hover:translate-x-1" />
+                <Gamepad2 className="size-10 text-brand-cyan" />
+                <ChevronRight className="size-5 text-brand-cyan/50 transition group-hover:translate-x-0.5" />
               </div>
-              <p className="mt-4 text-2xl font-black text-white">PlayStation</p>
-              <p className="mt-1 text-sm text-cyan-100/70">PS lar holati</p>
-              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-cyan-200/80">{psCount} ta qurilma</p>
+              <p className="mt-4 text-xl font-bold text-text-primary">PlayStation</p>
+              <p className="mt-1 text-sm text-text-muted">PS qurilmalari holati</p>
+              <p className="mt-3 label-caps text-brand-cyan">{psCount} ta qurilma</p>
             </button>
 
             <button
@@ -679,21 +708,238 @@ function DeviceZonePicker({
               onClick={() => onSelect("pc")}
               className={cn(
                 touchPress,
-                "group relative overflow-hidden rounded-3xl border border-fuchsia-400/35 bg-gradient-to-br from-fuchsia-500/20 via-violet-900/40 to-[#0a0618] p-6 text-left hover:border-fuchsia-300/60 hover:shadow-[0_0_40px_rgba(217,70,239,0.25)] active:border-fuchsia-200 active:bg-fuchsia-500/30 active:shadow-[0_0_32px_rgba(217,70,239,0.4)]",
+                "group relative overflow-hidden rounded-2xl border border-brand-magenta/30 bg-brand-magenta-dim p-6 text-left hover:border-brand-magenta/50 active:bg-brand-magenta/20",
               )}
             >
               <div className="flex items-center justify-between">
-                <Monitor className="size-10 text-fuchsia-200" />
-                <ChevronRight className="size-5 text-fuchsia-200/60 transition group-hover:translate-x-1" />
+                <Monitor className="size-10 text-brand-magenta" />
+                <ChevronRight className="size-5 text-brand-magenta/50 transition group-hover:translate-x-0.5" />
               </div>
-              <p className="mt-4 text-2xl font-black text-white">Kompyuter</p>
-              <p className="mt-1 text-sm text-fuchsia-100/70">PC lar holati</p>
-              <p className="mt-3 text-xs font-bold uppercase tracking-wider text-fuchsia-200/80">{pcCount} ta qurilma</p>
+              <p className="mt-4 text-xl font-bold text-text-primary">Kompyuter</p>
+              <p className="mt-1 text-sm text-text-muted">PC qurilmalari holati</p>
+              <p className="mt-3 label-caps text-brand-magenta">{pcCount} ta qurilma</p>
             </button>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function PcZonePanel({
+  devices,
+  loading,
+  selectedDeviceId,
+  bookingPrice,
+  durationHours,
+  startHour,
+  onBack,
+  onSelect,
+  setDurationHours,
+  setStartHour,
+  onCreateBooking,
+}: {
+  devices: Device[];
+  loading: boolean;
+  selectedDeviceId: string;
+  bookingPrice: number;
+  durationHours: number;
+  startHour: string;
+  onBack: () => void;
+  onSelect: (id: string) => void;
+  setDurationHours: (value: number) => void;
+  setStartHour: (value: string) => void;
+  onCreateBooking: () => void;
+}) {
+  const activePc =
+    devices.find((device) => device.id === selectedDeviceId) ?? devices[0];
+
+  if (loading) {
+    return (
+      <div className="pc-zone">
+        <p className="text-sm text-text-muted">PC qurilmalar yuklanmoqda...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pc-zone">
+      <div className="pc-zone__layout">
+        <aside className="pc-zone__sidebar">
+          <div className="pc-zone__sidebar-head">
+            <Button type="button" variant="ghost" size="sm" className="mb-4 w-fit px-0" onClick={onBack}>
+              <ArrowLeft className="size-4" />
+              Orqaga
+            </Button>
+            <div className="flex items-start gap-3">
+              <div className="pc-zone__icon-box">
+                <Monitor className="size-5 text-brand-cyan" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-text-primary">PC lar holati</h2>
+                <p className="mt-1 text-sm text-text-muted">
+                  Qurilmani tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pc-zone__device-list">
+            {devices.map((device, index) => {
+              const active = selectedDeviceId === device.id;
+              const busy = device.status !== "available";
+
+              return (
+                <button
+                  key={device.id}
+                  type="button"
+                  onClick={() => onSelect(device.id)}
+                  className={cn(
+                    "pc-zone__device-card",
+                    active && "pc-zone__device-card--active",
+                    busy && "pc-zone__device-card--busy",
+                  )}
+                >
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="font-bold text-text-primary">{device.name}</p>
+                    <p className="mt-0.5 text-xs text-text-muted">{device.type}</p>
+                    <p className="mt-1 tabular-data text-sm font-semibold text-brand-cyan">
+                      {formatCurrency(device.pricePerHour)}/soat
+                    </p>
+                    <PcStatusPill status={device.status} className="mt-2" />
+                  </div>
+                  <div
+                    className="pc-zone__device-thumb"
+                    style={{ backgroundImage: `url(${getPcThumbImage()})` }}
+                    aria-hidden
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pc-zone__promo" style={{ backgroundImage: `url(${PC_PROMO_IMAGE})` }}>
+            <div className="pc-zone__promo-overlay">
+              <p className="text-sm font-semibold leading-snug text-text-primary">
+                Do&apos;stlaringiz bilan o&apos;ynang va g&apos;alaba qozoning!
+              </p>
+              <span className="pc-zone__promo-tag">Arsenal Union</span>
+            </div>
+          </div>
+        </aside>
+
+        <section className="pc-zone__booking">
+          {!activePc ? (
+            <div className="pc-zone__booking-empty">
+              <p className="text-lg font-semibold text-text-primary">Qurilma bron qilish</p>
+              <p className="mt-2 text-sm text-text-muted">Chapdan PC tanlang.</p>
+            </div>
+          ) : (
+            <>
+              <div className="pc-zone__booking-head">
+                <div>
+                  <h2 className="text-xl font-bold text-text-primary">Qurilma bron qilish</h2>
+                  <p className="mt-1 text-sm text-text-muted">Tanlangan qurilma: {activePc.name}</p>
+                </div>
+              </div>
+
+              <div className="pc-zone__hero" style={{ backgroundImage: `url(${PC_HERO_IMAGE})` }} aria-hidden />
+
+              <div className="pc-zone__form">
+                <label className="pc-zone__field">
+                  <span className="pc-zone__label">Boshlanish vaqti</span>
+                  <div className="relative">
+                    <Clock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-text-faint" />
+                    <Input
+                      value={startHour}
+                      onChange={(event) => setStartHour(event.target.value)}
+                      placeholder="13:00"
+                      className="pc-zone__input h-12 pl-11"
+                    />
+                  </div>
+                </label>
+
+                <div className="pc-zone__field">
+                  <span className="pc-zone__label">Davomiyligi (soat)</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {durationOptions.map((hour) => (
+                      <button
+                        key={hour}
+                        type="button"
+                        onClick={() => setDurationHours(hour)}
+                        className={cn(
+                          "pc-zone__duration",
+                          durationHours === hour && "pc-zone__duration--active",
+                        )}
+                      >
+                        {hour}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pc-zone__total">
+                  <div>
+                    <p className="text-sm text-text-muted">Jami</p>
+                    <p className="tabular-data text-2xl font-bold text-brand-cyan">{formatCurrency(bookingPrice)}</p>
+                  </div>
+                  <p className="text-sm font-medium text-text-secondary">{durationHours} soat</p>
+                </div>
+
+                <button
+                  type="button"
+                  className="pc-zone__submit"
+                  onClick={onCreateBooking}
+                  disabled={activePc.status !== "available"}
+                >
+                  Bron qilish
+                  <ChevronRight className="size-5" />
+                </button>
+              </div>
+
+              <div className="pc-zone__specs">
+                {PC_SPEC_ITEMS.map((spec, index) => (
+                  <div key={spec.title} className="pc-zone__spec">
+                    <PcSpecIcon index={index} />
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">{spec.title}</p>
+                      <p className="text-xs text-text-muted">{spec.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function PcStatusPill({ status, className }: { status: DeviceStatus; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "pc-zone__status",
+        status === "available" && "pc-zone__status--free",
+        status === "busy" && "pc-zone__status--busy",
+        status === "booked" && "pc-zone__status--booked",
+        className,
+      )}
+    >
+      {STATUS_LABEL[status].toUpperCase()}
+    </span>
+  );
+}
+
+function PcSpecIcon({ index }: { index: number }) {
+  const icons = [Cpu, HardDrive, Monitor, Monitor, Keyboard, Headphones];
+  const Icon = icons[index] ?? Cpu;
+
+  return (
+    <div className="pc-zone__spec-icon">
+      <Icon className="size-4 text-brand-cyan" />
+    </div>
   );
 }
 
@@ -718,7 +964,7 @@ function DeviceZoneListPanel({
     return (
       <Card>
         <CardContent className="pt-6">
-          <p className="text-sm text-violet-200/70">Qurilmalar yuklanmoqda...</p>
+          <p className="text-sm text-text-muted">Qurilmalar yuklanmoqda...</p>
         </CardContent>
       </Card>
     );
@@ -738,14 +984,14 @@ function DeviceZoneListPanel({
       </CardHeader>
       <CardContent>
         {!devices.length ? (
-          <p className="text-sm text-violet-200/70">Bu zonada qurilmalar yo&apos;q. Admin paneldan qo&apos;shing.</p>
+          <p className="text-sm text-text-muted">Bu zonada qurilmalar yo&apos;q.</p>
         ) : (
           <div className="grid gap-3">
             {devices.map((device) => (
               <SelectableRow key={device.id} active={selectedDeviceId === device.id} onClick={() => onSelect(device.id)}>
                 <div>
-                  <p className="font-bold text-violet-50">{device.name}</p>
-                  <p className="text-sm text-violet-200/70">
+                  <p className="font-semibold text-text-primary">{device.name}</p>
+                  <p className="tabular-data text-sm text-text-muted">
                     {device.type} • {formatCurrency(device.pricePerHour)}/soat
                   </p>
                 </div>
@@ -781,7 +1027,7 @@ function BookingPanel({
       <Card>
         <CardHeader>
           <CardTitle>Qurilma bron qilish</CardTitle>
-          <CardDescription>Avval Qurilmalar bo&apos;limidan qurilma tanlang.</CardDescription>
+          <CardDescription>Yuqoridan qurilmani tanlang.</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -795,12 +1041,12 @@ function BookingPanel({
       </CardHeader>
       <CardContent>
         <label className="space-y-2">
-          <span className="text-sm font-semibold text-violet-200/80">Boshlanish vaqti</span>
+          <span className="text-sm font-semibold text-text-secondary">Boshlanish vaqti</span>
           <Input value={startHour} onChange={(event) => setStartHour(event.target.value)} placeholder="13:00" />
         </label>
 
         <div className="space-y-2">
-          <span className="text-sm font-semibold text-violet-200/80">Davomiyligi (soat)</span>
+          <span className="text-sm font-semibold text-text-secondary">Davomiyligi (soat)</span>
           <div className="flex flex-wrap gap-2">
             {durationOptions.map((hour) => (
               <Button
@@ -815,9 +1061,9 @@ function BookingPanel({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4">
-          <p className="text-sm text-cyan-100/75">Jami</p>
-          <p className="text-2xl font-black text-cyan-100">{formatCurrency(bookingPrice)}</p>
+        <div className="rounded-xl border border-brand-cyan/25 bg-brand-cyan-dim p-4">
+          <p className="text-sm text-text-muted">Jami</p>
+          <p className="tabular-data text-2xl font-bold text-brand-cyan">{formatCurrency(bookingPrice)}</p>
         </div>
 
         <PressButton variant="primary" onClick={onCreateBooking}>
@@ -835,8 +1081,10 @@ function HookahPanel({
   onAddHookah,
   selectedFlavorId,
   selectedTableId,
+  startHour,
   setSelectedFlavorId,
   setSelectedTableId,
+  setStartHour,
 }: {
   flavors: HookahFlavor[];
   tables: ClubTable[];
@@ -844,18 +1092,20 @@ function HookahPanel({
   onAddHookah: () => void;
   selectedFlavorId: string;
   selectedTableId: string;
+  startHour: string;
   setSelectedFlavorId: (id: string) => void;
   setSelectedTableId: (id: string) => void;
+  setStartHour: (value: string) => void;
 }) {
   if (!flavors.length || !tables.length) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Kalyan buyurtmasi</CardTitle>
-          <CardDescription>Admin paneldan stol va ta&apos;mlarni qo&apos;shing.</CardDescription>
+          <CardDescription>Stol va ta&apos;mlar hozircha mavjud emas.</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-violet-200/70">Hozircha kalyan ta&apos;mlari yoki stollar mavjud emas.</p>
+          <p className="text-sm text-text-muted">Hozircha kalyan ta&apos;mlari yoki stollar mavjud emas.</p>
         </CardContent>
       </Card>
     );
@@ -868,17 +1118,27 @@ function HookahPanel({
         <CardDescription>Stol va ta&apos;mni tanlab, buyurtmani savatga qo&apos;shing.</CardDescription>
       </CardHeader>
       <CardContent>
+        <label className="space-y-2">
+          <span className="text-sm font-semibold text-text-secondary">Bron boshlanish vaqti</span>
+          <Input
+            value={startHour}
+            onChange={(event) => setStartHour(event.target.value)}
+            placeholder="13:00"
+            inputMode="numeric"
+          />
+        </label>
+
         <div className="space-y-3">
-          <span className="text-sm font-semibold text-violet-200/80">Stol tanlang</span>
-          <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-violet-300/60">
-            <span className="inline-flex items-center gap-1">
-              <span className="size-2 rounded-full bg-emerald-400" /> Bo&apos;sh
+          <span className="text-sm font-semibold text-text-secondary">Stol tanlang</span>
+          <div className="flex flex-wrap gap-2 label-caps">
+            <span className="inline-flex items-center gap-1.5 text-status-available">
+              <span className="size-2 rounded-full bg-status-available" /> Bo&apos;sh
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="size-2 rounded-full bg-rose-400" /> Band
+            <span className="inline-flex items-center gap-1.5 text-status-busy">
+              <span className="size-2 rounded-full bg-status-busy" /> Band
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="size-2 rounded-full bg-amber-400" /> Bron
+            <span className="inline-flex items-center gap-1.5 text-status-booked">
+              <span className="size-2 rounded-full bg-status-booked" /> Bron
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -889,14 +1149,14 @@ function HookahPanel({
                 onClick={() => setSelectedTableId(table.id)}
                 className={cn(
                   touchPress,
-                  "rounded-2xl border-2 p-4 text-left active:ring-2 active:ring-cyan-300/80",
-                  table.status === "available" && "border-emerald-400/50 bg-emerald-500/10 active:bg-emerald-500/25",
-                  table.status === "busy" && "border-rose-400/50 bg-rose-500/10 active:bg-rose-500/25",
-                  table.status === "booked" && "border-amber-400/50 bg-amber-500/10 active:bg-amber-500/25",
-                  selectedTableId === table.id && "ring-2 ring-fuchsia-400 ring-offset-2 ring-offset-[#07050f]",
+                  "rounded-xl border-2 p-4 text-left active:ring-2 active:ring-brand-cyan/40",
+                  table.status === "available" && "border-status-available/40 bg-status-available/8",
+                  table.status === "busy" && "border-status-busy/40 bg-status-busy/8",
+                  table.status === "booked" && "border-status-booked/40 bg-status-booked/8",
+                  selectedTableId === table.id && "ring-2 ring-brand-magenta ring-offset-2 ring-offset-arena-base",
                 )}
               >
-                <p className="font-bold text-violet-50">{table.title}</p>
+                <p className="font-semibold text-text-primary">{table.title}</p>
                 <TableStatusBadge status={table.status} className="mt-2" />
               </button>
             ))}
@@ -911,14 +1171,19 @@ function HookahPanel({
               onClick={() => setSelectedFlavorId(flavor.id)}
             >
               <div>
-                <p className="font-bold text-violet-50">{flavor.title}</p>
-                <p className="text-sm text-violet-200/70">{formatCurrency(flavor.price)}</p>
+                <p className="font-semibold text-text-primary">{flavor.title}</p>
+                <p className="tabular-data text-sm text-text-muted">{formatCurrency(flavor.price)}</p>
               </div>
             </SelectableRow>
           ))}
         </div>
 
-        <Button className="w-full" onClick={onAddHookah} disabled={loading || !selectedFlavorId || !selectedTableId}>
+        <Button
+          className="w-full"
+          variant="accent"
+          onClick={onAddHookah}
+          disabled={loading || !selectedFlavorId || !selectedTableId || !startHour.trim()}
+        >
           {loading ? "Qo'shilmoqda..." : "Buyurtma berish"}
         </Button>
       </CardContent>
@@ -963,29 +1228,27 @@ function CartPanel({
 
 function PaymentPanel({
   cart,
-  paidOrders,
   grandTotal,
   onPayNow,
   paymentMethod,
-  paymentStatus,
+  paymentLoading,
+  paymentError,
   setPaymentMethod,
   pendingSessions,
   onSessionUnlocked,
   onCancelSession,
 }: {
   cart: CartItem[];
-  paidOrders: OrderRecord[];
   grandTotal: number;
   onPayNow: () => void;
   paymentMethod: PaymentMethod;
-  paymentStatus: "pending" | "paid";
+  paymentLoading: boolean;
+  paymentError: string | null;
   setPaymentMethod: (method: PaymentMethod) => void;
   pendingSessions: ClubSession[];
   onSessionUnlocked: () => void;
   onCancelSession: (sessionId: string, deviceId?: string) => Promise<void>;
 }) {
-  const lastPaid = paidOrders[0];
-
   return (
     <div className="space-y-5">
       {pendingSessions.length > 0 ? (
@@ -995,59 +1258,38 @@ function PaymentPanel({
           onCancelSession={onCancelSession}
         />
       ) : null}
-    <Card>
-      <CardHeader>
+    <Card className="pb-4">
+      <CardHeader className="mb-3">
         <CardTitle>To&apos;lov</CardTitle>
         <CardDescription>
-          {cart.length
-            ? `To'lanishi kerak: ${cart.length} ta buyurtma`
-            : lastPaid
-              ? `Oxirgi to'lov: ${formatCurrency(lastPaid.price)}`
-              : "Buyurtmalar ro'yxati"}
+          {cart.length ? `To'lanishi kerak: ${cart.length} ta buyurtma` : "Savat bo'sh — to'lov uchun buyurtma qo'shing."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-4">
         {cart.length > 0 ? (
           <section className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300/70">To&apos;lov qilinadigan</p>
+            <p className="label-caps">To&apos;lov qilinadigan</p>
             <OrderLinesList items={cart} />
             <TotalBox total={grandTotal} />
           </section>
         ) : null}
 
-        {paidOrders.length > 0 ? (
-          <section className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300/70">To&apos;langan buyurtmalar</p>
-            {paidOrders.slice(0, 8).map((order, index) => (
-              <PaidOrderRow key={`${order.id}-${order.paidAt}`} order={order} highlight={index === 0} />
-            ))}
-          </section>
-        ) : null}
-
-        <label className="space-y-2">
-          <span className="text-sm font-semibold text-violet-200/80">To&apos;lov usuli</span>
-          <Select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}>
+        <section className="space-y-3">
+          <p className="text-sm font-semibold text-text-secondary">To&apos;lov usuli</p>
+          <div className="grid gap-3 sm:grid-cols-3">
             {PAYMENT_METHODS.map((method) => (
-              <option key={method} value={method}>
-                {method}
-              </option>
+              <SelectableRow key={method} active={paymentMethod === method} onClick={() => setPaymentMethod(method)}>
+                <p className="font-semibold text-text-primary">{method}</p>
+                <span className="text-xs text-text-muted">{paymentMethod === method ? "Tanlandi" : "Tanlash"}</span>
+              </SelectableRow>
             ))}
-          </Select>
-        </label>
+          </div>
+        </section>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          {PAYMENT_METHODS.map((method) => (
-            <SelectableRow key={method} active={paymentMethod === method} onClick={() => setPaymentMethod(method)}>
-              <p className="font-bold text-violet-50">{method}</p>
-              <span className="text-xs text-violet-200/70">{paymentMethod === method ? "Tanlandi" : "Tanlash"}</span>
-            </SelectableRow>
-          ))}
-        </div>
-
-        <Button className="w-full" onClick={onPayNow} disabled={!cart.length}>
-          To&apos;lash
+        <Button className="w-full" onClick={onPayNow} disabled={!cart.length || paymentLoading}>
+          {paymentLoading ? "To'lov ochilmoqda..." : "To'lash"}
         </Button>
-        <Badge variant={paymentStatus === "paid" ? "available" : "booked"}>Status: {paymentStatus}</Badge>
+        {paymentError ? <p className="text-sm text-red-400">{paymentError}</p> : null}
       </CardContent>
     </Card>
     </div>
@@ -1056,21 +1298,30 @@ function PaymentPanel({
 
 function ProfilePanel({
   bookings,
+  paidOrders,
   phone,
   session,
   setPhone,
+  onAvatarChange,
   onCancelBooking,
 }: {
   bookings: Booking[];
+  paidOrders: OrderRecord[];
   phone: string;
   session: UserSession;
   setPhone: (value: string) => void;
+  onAvatarChange: (avatarUrl: string | null) => void;
   onCancelBooking: (bookingId: string, deviceId?: string) => Promise<void>;
 }) {
   return (
     <div className="space-y-5">
-      <ProfileBox session={session} phone={phone} onPhoneChange={setPhone} />
-      <HistoryCard bookings={bookings} onCancelBooking={onCancelBooking} />
+      <ProfileBox
+        session={session}
+        phone={phone}
+        onPhoneChange={setPhone}
+        onAvatarChange={onAvatarChange}
+      />
+      <HistoryCard bookings={bookings} paidOrders={paidOrders} onCancelBooking={onCancelBooking} />
     </div>
   );
 }
@@ -1079,19 +1330,15 @@ function AsidePanel({
   bookings,
   cart,
   devices,
-  paidOrders,
   lastPaymentTotal,
   grandTotal,
-  notifications,
   onOpenCart,
 }: {
   bookings: Booking[];
   cart: CartItem[];
   devices: Device[];
-  paidOrders: OrderRecord[];
   lastPaymentTotal: number | null;
   grandTotal: number;
-  notifications: string[];
   onOpenCart: () => void;
 }) {
   return (
@@ -1106,9 +1353,9 @@ function AsidePanel({
           <MiniStat label="Bronlar" value={`${bookings.length} ta`} icon={<History className="size-4" />} />
           {cart.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-300/70">Savatdagi buyurtmalar</p>
+              <p className="label-caps text-text-muted">Savatdagi buyurtmalar</p>
               <OrderLinesList items={cart} compact />
-              <p className="text-sm font-bold text-cyan-100">Jami: {formatCurrency(grandTotal)}</p>
+              <p className="tabular-data text-sm font-bold text-brand-cyan">Jami: {formatCurrency(grandTotal)}</p>
             </div>
           ) : lastPaymentTotal != null ? (
             <MiniStat
@@ -1119,75 +1366,103 @@ function AsidePanel({
           ) : (
             <MiniStat label="Savat" value="Bo'sh" icon={<ShoppingCart className="size-4" />} />
           )}
-          <Button variant="secondary" className="w-full" onClick={onOpenCart}>
+          <Button variant="accent" className="w-full" onClick={onOpenCart}>
             Savatni ochish
           </Button>
         </CardContent>
       </Card>
-
-      <NotificationsCard notifications={notifications} compact />
     </aside>
-  );
-}
-
-function NotificationsCard({ compact = false, notifications }: { compact?: boolean; notifications: string[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bell className="size-5 text-cyan-200" />
-          Bildirishnomalar
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {notifications.slice(0, compact ? 3 : notifications.length).map((notification, index) => (
-          <div key={`${notification}-${index}`} className="rounded-2xl border border-violet-500/20 bg-white/[0.03] p-3 text-sm text-violet-100/80">
-            {notification}
-          </div>
-        ))}
-      </CardContent>
-    </Card>
   );
 }
 
 function HistoryCard({
   bookings,
+  paidOrders,
   onCancelBooking,
 }: {
   bookings: Booking[];
+  paidOrders: OrderRecord[];
   onCancelBooking: (bookingId: string, deviceId?: string) => Promise<void>;
 }) {
+  const [visibleCount, setVisibleCount] = useState(3);
+
+  const historyEntries = useMemo(() => {
+    const bookingIds = new Set(bookings.map((booking) => booking.id));
+    const dedupedPaidOrders = paidOrders.filter(
+      (order) => order.type !== "booking" || !bookingIds.has(order.id),
+    );
+
+    return [
+      ...bookings.map((booking) => ({
+        key: `booking-${booking.id}`,
+        sortAt: booking.createdAt ? new Date(booking.createdAt).getTime() : 0,
+        kind: "booking" as const,
+        booking,
+      })),
+      ...dedupedPaidOrders.map((order) => ({
+        key: `paid-${order.id}-${order.paidAt}`,
+        sortAt: new Date(order.paidAt).getTime(),
+        kind: "paid" as const,
+        order,
+      })),
+    ].sort((a, b) => b.sortAt - a.sortAt);
+  }, [bookings, paidOrders]);
+
+  const visibleEntries = historyEntries.slice(0, visibleCount);
+  const hasMore = historyEntries.length > visibleCount;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Bronlar tarixi</CardTitle>
+        <CardDescription>Bronlar va to&apos;langan buyurtmalar.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {!bookings.length && <p className="text-sm text-violet-200/70">Hozircha bronlar yo&apos;q.</p>}
-        {bookings.map((booking) => (
-          <SelectableRow key={booking.id} className="flex-wrap gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="font-bold text-violet-50">{booking.deviceName}</p>
-              <p className="text-sm text-violet-200/70">
-                {booking.startHour}, {booking.durationHours} soat
-              </p>
-              <Badge
-                variant={booking.status === "active" ? "booked" : booking.status === "cancelled" ? "busy" : "available"}
-                className="mt-2"
-              >
-                {BOOKING_STATUS_LABEL[(booking.status || "active") as BookingStatus] ?? booking.status}
-              </Badge>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <p className="text-sm font-bold text-cyan-100">{formatCurrency(booking.price)}</p>
-              {booking.status === "active" ? (
-                <Button type="button" size="sm" variant="secondary" onClick={() => onCancelBooking(booking.id, booking.deviceId)}>
-                  Bekor qilish
-                </Button>
-              ) : null}
-            </div>
-          </SelectableRow>
-        ))}
+        {!historyEntries.length && <p className="text-sm text-text-muted">Hozircha tarix yo&apos;q.</p>}
+        {visibleEntries.map((entry) =>
+          entry.kind === "booking" ? (
+            <SelectableRow key={entry.key} className="flex-wrap gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-text-primary">{entry.booking.deviceName}</p>
+                <p className="tabular-data text-sm text-text-muted">
+                  {entry.booking.startHour}, {entry.booking.durationHours} soat
+                </p>
+                <Badge
+                  variant={
+                    entry.booking.status === "active"
+                      ? "booked"
+                      : entry.booking.status === "cancelled"
+                        ? "busy"
+                        : "available"
+                  }
+                  className="mt-2"
+                >
+                  {BOOKING_STATUS_LABEL[(entry.booking.status || "active") as BookingStatus] ?? entry.booking.status}
+                </Badge>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <p className="tabular-data text-sm font-bold text-brand-cyan">{formatCurrency(entry.booking.price)}</p>
+                {entry.booking.status === "active" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => onCancelBooking(entry.booking.id, entry.booking.deviceId)}
+                  >
+                    Bekor qilish
+                  </Button>
+                ) : null}
+              </div>
+            </SelectableRow>
+          ) : (
+            <PaidOrderRow key={entry.key} order={entry.order} />
+          ),
+        )}
+        {hasMore ? (
+          <Button type="button" variant="secondary" className="w-full" onClick={() => setVisibleCount((count) => count + 4)}>
+            Yana ko&apos;rish
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -1203,7 +1478,7 @@ function OrderLinesList({
   onRemove?: (item: CartItem) => void;
 }) {
   if (!items.length) {
-    return <p className="text-sm text-violet-200/70">Buyurtmalar yo&apos;q.</p>;
+    return <p className="text-sm text-text-muted">Buyurtmalar yo&apos;q.</p>;
   }
 
   return (
@@ -1211,14 +1486,14 @@ function OrderLinesList({
       {items.map((item, index) => (
         <SelectableRow key={item.id} className={cn(compact ? "p-3" : undefined, "flex-wrap gap-3")}>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-fuchsia-300/80">
+            <p className="label-caps text-brand-magenta">
               Buyurtma #{index + 1}
             </p>
-            <p className="font-bold text-violet-50">{item.title}</p>
-            <p className="text-xs text-violet-300/60">{ORDER_TYPE_LABEL[item.type]}</p>
+            <p className="font-semibold text-text-primary">{item.title}</p>
+            <p className="text-xs text-text-faint">{ORDER_TYPE_LABEL[item.type]}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <p className="text-sm font-bold text-cyan-100">{formatCurrency(item.price)}</p>
+            <p className="tabular-data text-sm font-bold text-brand-cyan">{formatCurrency(item.price)}</p>
             {onRemove ? (
               <Button type="button" size="sm" variant="secondary" onClick={() => onRemove(item)}>
                 O&apos;chirish
@@ -1243,7 +1518,7 @@ function CartList({
   return <OrderLinesList items={cart} compact={compact} onRemove={onRemove} />;
 }
 
-function PaidOrderRow({ order, highlight }: { order: OrderRecord; highlight?: boolean }) {
+function PaidOrderRow({ order, highlight = false }: { order: OrderRecord; highlight?: boolean }) {
   const time = new Date(order.paidAt).toLocaleString("uz-UZ", {
     day: "numeric",
     month: "short",
@@ -1254,21 +1529,21 @@ function PaidOrderRow({ order, highlight }: { order: OrderRecord; highlight?: bo
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4",
-        highlight ? "border-cyan-400/40 bg-cyan-500/10" : "border-violet-500/20 bg-white/[0.03]",
+        "rounded-xl border p-4",
+        highlight ? "border-brand-cyan/35 bg-brand-cyan-dim" : "border-border-subtle bg-arena-overlay/40",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          {highlight ? (
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300/90">Oxirgi to&apos;lov</p>
-          ) : null}
-          <p className="font-bold text-violet-50">{order.title}</p>
-          <p className="mt-1 text-xs text-violet-300/60">
+          <Badge variant="available" className="mb-2">
+            To&apos;langan
+          </Badge>
+          <p className="font-semibold text-text-primary">{order.title}</p>
+          <p className="mt-1 text-xs text-text-faint">
             {ORDER_TYPE_LABEL[order.type]} • {order.paymentMethod} • {time}
           </p>
         </div>
-        <p className="shrink-0 text-sm font-black text-cyan-100">{formatCurrency(order.price)}</p>
+        <p className="tabular-data shrink-0 text-sm font-bold text-brand-cyan">{formatCurrency(order.price)}</p>
       </div>
     </div>
   );
@@ -1276,21 +1551,21 @@ function PaidOrderRow({ order, highlight }: { order: OrderRecord; highlight?: bo
 
 function TotalBox({ total }: { total: number }) {
   return (
-    <div className="rounded-2xl border border-fuchsia-300/25 bg-fuchsia-400/10 p-4">
-      <p className="text-sm text-fuchsia-100/70">Jami</p>
-      <p className="text-2xl font-black text-white">{formatCurrency(total)}</p>
+    <div className="rounded-xl border border-brand-magenta/25 bg-brand-magenta-dim p-4">
+      <p className="text-sm text-text-muted">Jami</p>
+      <p className="tabular-data text-2xl font-bold text-text-primary">{formatCurrency(total)}</p>
     </div>
   );
 }
 
 function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-violet-500/25 bg-white/[0.04] p-4">
-      <div className="flex items-center gap-2 text-cyan-200">
+    <div className="rounded-xl border border-border-default bg-arena-overlay p-4 shadow-[0_4px_16px_oklch(0_0_0_/_0.18)]">
+      <div className="flex items-center gap-2 text-brand-cyan">
         {icon}
-        <span className="text-xs font-bold uppercase tracking-[0.25em]">{label}</span>
+        <span className="label-caps text-brand-cyan/90">{label}</span>
       </div>
-      <p className="mt-2 text-xl font-black text-white">{value}</p>
+      <p className="mt-2 text-lg font-bold text-text-primary">{value}</p>
     </div>
   );
 }
@@ -1311,9 +1586,9 @@ function SelectableRow({
   return (
     <Comp
       className={cn(
-        "flex w-full items-center justify-between gap-4 rounded-2xl border border-violet-500/20 bg-[#161323] p-4 text-left",
-        onClick && cn(touchPress, "hover:border-cyan-300/45 hover:bg-white/[0.06] active:border-cyan-300/60 active:bg-white/10"),
-        active && "border-fuchsia-300/70 shadow-[0_0_22px_rgba(217,70,239,0.22)] active:shadow-[0_0_28px_rgba(217,70,239,0.35)]",
+        "flex w-full items-center justify-between gap-4 rounded-xl border border-border-subtle bg-arena-raised p-4 text-left",
+        onClick && cn(touchPress, "hover:border-border-accent hover:bg-arena-overlay/60 active:bg-arena-surface"),
+        active && "border-brand-magenta/50 bg-brand-magenta-dim",
         className,
       )}
       onClick={onClick}

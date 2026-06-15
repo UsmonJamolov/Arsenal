@@ -5,8 +5,6 @@ import { fileURLToPath } from "node:url";
 const appDir = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
-  // Cloudflare / ngrok tunnel orqali telefondan dev rejimda ochish uchun
-  allowedDevOrigins: ["*.trycloudflare.com", "*.ngrok-free.app", "*.ngrok.io"],
   skipTrailingSlashRedirect: true,
   turbopack: {
     root: appDir,

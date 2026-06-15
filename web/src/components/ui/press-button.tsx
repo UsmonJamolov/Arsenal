@@ -1,29 +1,28 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { useCallback, useState, type ButtonHTMLAttributes } from "react";
+import { motion, type HTMLMotionProps } from "framer-motion";
+import { useCallback, useState } from "react";
 
 import { cn, touchPress } from "@/lib/utils";
 
 type PressButtonVariant = "primary" | "payment" | "clear";
 
 const variantClass: Record<PressButtonVariant, string> = {
-  primary:
-    "bg-fuchsia-600 text-white shadow-[0_0_24px_rgba(217,70,239,0.35)] hover:bg-fuchsia-500 active:bg-fuchsia-300",
-  payment:
-    "bg-cyan-500 text-[#05030f] shadow-[0_0_24px_rgba(34,211,238,0.35)] hover:bg-cyan-400 active:bg-cyan-300",
+  primary: "bg-brand-magenta text-white hover:bg-brand-magenta/90 active:bg-brand-magenta/80",
+  payment: "bg-brand-cyan text-arena-base hover:bg-brand-cyan/90 active:bg-brand-cyan/80",
   clear:
-    "border-2 border-violet-400/50 bg-white/5 text-violet-100 hover:bg-white/10 active:border-rose-300/70 active:bg-rose-500/20 active:text-rose-100",
+    "border border-border-strong bg-arena-overlay/40 text-text-secondary hover:bg-arena-overlay active:border-status-busy/50 active:bg-status-busy/10 active:text-status-busy",
 };
 
 const flashClass: Record<PressButtonVariant, string> = {
-  primary: "bg-fuchsia-200/50",
-  payment: "bg-cyan-100/60",
-  clear: "bg-rose-200/40",
+  primary: "bg-white/25",
+  payment: "bg-white/30",
+  clear: "bg-status-busy/20",
 };
 
-type PressButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+type PressButtonProps = Omit<HTMLMotionProps<"button">, "children"> & {
   variant?: PressButtonVariant;
+  children?: React.ReactNode;
 };
 
 export function PressButton({
@@ -47,7 +46,7 @@ export function PressButton({
     <motion.button
       type="button"
       disabled={disabled}
-      whileTap={disabled ? undefined : { scale: 0.9 }}
+      whileTap={disabled ? undefined : { scale: 0.97 }}
       transition={{ type: "spring", stiffness: 520, damping: 22 }}
       onPointerDown={(event) => {
         pulse();
@@ -61,8 +60,8 @@ export function PressButton({
         "relative inline-flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 text-sm font-bold",
         touchPress,
         variantClass[variant],
-        flash && "ring-[3px] ring-white/50 ring-offset-2 ring-offset-[#07050f]",
-        disabled && "pointer-events-none opacity-50",
+        flash && "ring-2 ring-white/30 ring-offset-2 ring-offset-arena-base",
+        disabled && "pointer-events-none opacity-45",
         className,
       )}
       {...props}

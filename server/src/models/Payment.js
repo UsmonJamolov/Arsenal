@@ -13,9 +13,12 @@ const paymentItemSchema = new mongoose.Schema(
 const paymentSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    intentId: { type: mongoose.Schema.Types.ObjectId, ref: "PaymentIntent", default: null, index: true },
     items: { type: [paymentItemSchema], default: [] },
     total: { type: Number, required: true, min: 0 },
     method: { type: String, required: true, trim: true },
+    provider: { type: String, default: "", trim: true },
+    externalTransactionId: { type: String, default: "", trim: true },
     paidAt: { type: Date, default: Date.now },
   },
   { timestamps: true, collection: "payments" },
@@ -29,6 +32,9 @@ paymentSchema.methods.toJSON = function toJSON() {
     total: this.total,
     method: this.method,
     paymentMethod: this.method,
+    provider: this.provider,
+    externalTransactionId: this.externalTransactionId,
+    intentId: this.intentId ? this.intentId.toString() : null,
     paidAt: this.paidAt.toISOString(),
   };
 };

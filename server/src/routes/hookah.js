@@ -16,7 +16,11 @@ router.get("/flavors", async (req, res, next) => {
 
 router.post("/orders", async (req, res, next) => {
   try {
-    const { flavorId, tableId } = req.body ?? {};
+    const { flavorId, tableId, startHour } = req.body ?? {};
+
+    if (!startHour || !String(startHour).trim()) {
+      return res.status(400).json({ message: "Boshlanish vaqti majburiy" });
+    }
 
     const flavor = await HookahFlavor.findOne({ slug: flavorId });
     const table = await Table.findOne({ slug: tableId });
@@ -29,10 +33,11 @@ router.post("/orders", async (req, res, next) => {
       return res.status(400).json({ message: "Stol topilmadi" });
     }
 
+    const hour = String(startHour).trim();
     const cartItem = {
       id: `hk-${Date.now()}`,
       type: "hookah",
-      title: `${flavor.title} (${table.title})`,
+      title: `${flavor.title} (${table.title}) • ${hour}`,
       price: flavor.price,
     };
 
