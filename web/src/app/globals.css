@@ -1469,6 +1469,7 @@ body {
 }
 
 @import "./home.css";
+@import "./devices-zone.css";
 
 @media (prefers-reduced-motion: reduce) {
   .auth-grid-bg {

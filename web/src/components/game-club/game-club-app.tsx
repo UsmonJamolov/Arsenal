@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, CreditCard, Gamepad2, History, Monitor, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ChevronRight, CreditCard, Gamepad2, History, ShoppingCart } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MobileBottomNav } from "@/components/game-club/mobile-bottom-nav";
 import { HookahZonePanel } from "@/components/game-club/hookah-zone-panel";
+import { DevicesZonePanel } from "@/components/game-club/devices-zone-panel";
 import { HomePanel } from "@/components/game-club/home-panel";
 import { PcZonePanel } from "@/components/game-club/pc-zone-panel";
 import { PsZonePanel } from "@/components/game-club/ps-zone-panel";
@@ -403,14 +404,20 @@ export function GameClubApp() {
   return (
     <main
       className={cn(
-        "min-h-screen text-text-primary",
-        activeTab === "home" ? "home-screen-bg" : activeTab === "hookah" ? "hookah-screen-bg" : "arena-bg",
+        "text-text-primary",
+        activeTab === "home" && "min-h-screen home-screen-bg",
+        activeTab === "devices" && !deviceZone && "min-h-screen devices-screen-bg",
+        activeTab === "devices" && deviceZone && "min-h-screen arena-bg",
+        activeTab === "hookah" && "min-h-screen hookah-screen-bg",
+        activeTab !== "home" && activeTab !== "devices" && activeTab !== "hookah" && "min-h-screen arena-bg",
       )}
     >
       <div
         className={cn(
-          "relative mx-auto flex w-full max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8",
-          "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-6",
+          "relative mx-auto flex w-full flex-col",
+          activeTab === "devices" && !deviceZone
+            ? "devices-screen-layout min-h-screen max-w-[430px] px-6 py-5"
+            : "app-mobile-nav-padding min-h-screen max-w-7xl px-4 py-6 sm:px-6 md:pb-6 lg:px-8",
           activeTab === "home" && "min-h-0",
         )}
       >
@@ -427,11 +434,19 @@ export function GameClubApp() {
           ))}
         </TabsList>
 
-        <section className={cn("grid gap-5", activeTab === "home" ? "pt-6 pb-0" : "py-2")}>
+        <section
+          className={cn(
+            "grid min-h-0",
+            activeTab === "home" && "gap-5 pt-6 pb-0",
+            activeTab === "devices" && !deviceZone && "gap-0 pt-0 pb-0",
+            activeTab !== "home" && !(activeTab === "devices" && !deviceZone) && "gap-5 py-2",
+          )}
+        >
           <div
             className={cn(
-              "space-y-5",
-              (activeTab === "home" || activeTab === "devices" || activeTab === "hookah") && "mx-auto w-full max-w-lg",
+              activeTab === "devices" && !deviceZone ? "w-full max-w-[430px]" : "space-y-5",
+              (activeTab === "home" || (activeTab === "devices" && deviceZone) || activeTab === "hookah") &&
+                "mx-auto w-full max-w-lg",
             )}
           >
             {activeTab === "home" && (
@@ -449,10 +464,11 @@ export function GameClubApp() {
             )}
             {activeTab === "devices" &&
               (!deviceZone ? (
-                <DeviceZonePicker
+                <DevicesZonePanel
                   loading={devicesLoading}
                   psCount={filterDevicesByZone(devices, "ps").length}
                   pcCount={filterDevicesByZone(devices, "pc").length}
+                  onBack={() => setActiveTab("home")}
                   onSelect={setDeviceZone}
                 />
               ) : deviceZone === "pc" ? (
@@ -561,68 +577,6 @@ export function GameClubApp() {
         />
       </div>
     </main>
-  );
-}
-
-function DeviceZonePicker({
-  loading,
-  psCount,
-  pcCount,
-  onSelect,
-}: {
-  loading: boolean;
-  psCount: number;
-  pcCount: number;
-  onSelect: (zone: DeviceZone) => void;
-}) {
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader>
-        <CardTitle>Qurilmalar zonasi</CardTitle>
-        <CardDescription>PS yoki PC zonasini tanlang — holat alohida sahifada ko&apos;rinadi.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <p className="text-sm text-text-muted">Yuklanmoqda...</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => onSelect("ps")}
-              className={cn(
-                touchPress,
-                "group relative overflow-hidden rounded-2xl border border-brand-cyan/30 bg-brand-cyan-dim p-6 text-left hover:border-brand-cyan/50 active:bg-brand-cyan/20",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <Gamepad2 className="size-10 text-brand-cyan" />
-                <ChevronRight className="size-5 text-brand-cyan/50 transition group-hover:translate-x-0.5" />
-              </div>
-              <p className="mt-4 text-xl font-bold text-text-primary">PlayStation</p>
-              <p className="mt-1 text-sm text-text-muted">PS qurilmalari holati</p>
-              <p className="mt-3 label-caps text-brand-cyan">{psCount} ta qurilma</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onSelect("pc")}
-              className={cn(
-                touchPress,
-                "group relative overflow-hidden rounded-2xl border border-brand-magenta/30 bg-brand-magenta-dim p-6 text-left hover:border-brand-magenta/50 active:bg-brand-magenta/20",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <Monitor className="size-10 text-brand-magenta" />
-                <ChevronRight className="size-5 text-brand-magenta/50 transition group-hover:translate-x-0.5" />
-              </div>
-              <p className="mt-4 text-xl font-bold text-text-primary">Kompyuter</p>
-              <p className="mt-1 text-sm text-text-muted">PC qurilmalari holati</p>
-              <p className="mt-3 label-caps text-brand-magenta">{pcCount} ta qurilma</p>
-            </button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 

@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { KeyRound, LogIn, Send, Shield } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
@@ -15,7 +14,6 @@ type TelegramConfig = {
 };
 
 export function AuthShell() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [botConfig, setBotConfig] = useState<TelegramConfig>({
@@ -43,7 +41,7 @@ export function AuthShell() {
 
         saveSession(data.user);
         setApiUserId(data.user.id);
-        router.push("/");
+        window.location.href = "/";
       } catch (submitError) {
         setError(submitError instanceof Error ? submitError.message : "Kod noto'g'ri");
         setOtp("");
@@ -51,7 +49,7 @@ export function AuthShell() {
         setLoading(false);
       }
     },
-    [router],
+    [],
   );
 
   useEffect(() => {

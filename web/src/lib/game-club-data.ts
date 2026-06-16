@@ -168,6 +168,11 @@ export const PS_DEVICE_IMAGES = [
 
 export const PS_BOOKING_HERO = "/devices/ps-booking-hero.png";
 
+export const DEVICE_ZONE_IMAGES = {
+  ps: "/devices/zone-ps-card.png?v=4",
+  pc: "/devices/zone-pc-card.png",
+} as const;
+
 export const PS_STATION_META = [
   { seats: 4, display: "4K HDR" },
   { seats: 3, display: "4K HDR" },
