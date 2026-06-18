@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 
-const { adminEmail, adminName, adminPassword, adminPhone } = require("../config");
+const { adminEmail, adminFirstName, adminLastName, adminPassword, adminPhone } = require("../config");
 const Device = require("../models/Device");
 const Table = require("../models/Table");
 const HookahFlavor = require("../models/HookahFlavor");
@@ -86,7 +86,7 @@ async function ensureAdminUser() {
   await User.findOneAndUpdate(
     { phone },
     {
-      name: adminName,
+      name: `${adminFirstName} ${adminLastName}`.trim(),
       phone,
       email: adminEmail.toLowerCase(),
       password: hashed,

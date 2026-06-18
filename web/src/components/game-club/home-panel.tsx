@@ -31,7 +31,8 @@ const fadeUp = {
 
 type HomePanelProps = {
   devices: Device[];
-  bookingsCount: number;
+  completedBookingsCount: number;
+  cartCount: number;
   hookahCount: number;
   liveStatus: LiveStatus;
   session: UserSession | null;
@@ -43,7 +44,8 @@ type HomePanelProps = {
 
 export function HomePanel({
   devices,
-  bookingsCount,
+  completedBookingsCount,
+  cartCount,
   hookahCount,
   liveStatus,
   session,
@@ -136,14 +138,31 @@ export function HomePanel({
         initial="hidden"
         animate="show"
       >
-        <div className="home-glass-card home-stat-card home-stat-card--full">
-          <div className="home-stat-card__icon home-stat-card__icon--cyan">
-            <ShoppingCart className="size-5" strokeWidth={1.75} />
+        <div className="home-cart-stat">
+          <div className="home-cart-stat__glow" aria-hidden />
+          <div className="home-cart-stat__accent" aria-hidden />
+
+          <div className="home-cart-stat__icon-wrap">
+            <ShoppingCart className="size-5" strokeWidth={2} />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="home-stat-card__eyebrow home-stat-card__eyebrow--cyan">Savat</p>
-            <p className="home-stat-card__value">{bookingsCount} ta</p>
-            <p className="home-stat-card__label">Bronlar soni</p>
+
+          <div className="home-cart-stat__body">
+            <div className="home-cart-stat__top">
+              <p className="home-cart-stat__eyebrow">Savat</p>
+              {cartCount > 0 ? <span className="home-cart-stat__live" aria-hidden /> : null}
+            </div>
+            <p className="home-cart-stat__value">
+              {cartCount}
+              <span className="home-cart-stat__unit">ta</span>
+            </p>
+            <p className="home-cart-stat__label">
+              {cartCount > 0 ? "To'lovga tayyor buyurtmalar" : "Hozircha bo'sh"}
+            </p>
+          </div>
+
+          <div className="home-cart-stat__meta">
+            <p className="home-cart-stat__meta-label">Tugallangan bron</p>
+            <p className="home-cart-stat__meta-value">{completedBookingsCount}</p>
           </div>
         </div>
       </motion.div>

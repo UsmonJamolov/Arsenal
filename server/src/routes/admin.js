@@ -1,5 +1,8 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const express = require("express");
+
+const { adminSecretKey } = require("../config");
 
 const requireAdmin = require("../middleware/requireAdmin");
 const Booking = require("../models/Booking");
@@ -21,6 +24,25 @@ function normalizePhone(phone) {
   return String(phone).replace(/\s+/g, "").trim();
 }
 
+function normalizePersonName(value) {
+  return String(value).trim().replace(/\s+/g, " ").toLocaleLowerCase("uz-UZ");
+}
+
+function namesMatch(userName, firstName, lastName) {
+  return normalizePersonName(userName) === normalizePersonName(`${firstName} ${lastName}`);
+}
+
+function secretKeysMatch(provided, expected) {
+  const left = Buffer.from(String(provided));
+  const right = Buffer.from(String(expected));
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(left, right);
+}
+
 function slugify(value) {
   return String(value)
     .toLowerCase()
@@ -31,22 +53,32 @@ function slugify(value) {
 
 router.post("/login", async (req, res, next) => {
   try {
-    const { phone, password } = req.body ?? {};
+    const { phone, firstName, lastName, password, secretKey } = req.body ?? {};
 
-    if (!phone?.trim() || !password) {
-      return res.status(400).json({ message: "Telefon va parol majburiy" });
+    if (!phone?.trim() || !firstName?.trim() || !lastName?.trim() || !password || !secretKey?.trim()) {
+      return res.status(400).json({
+        message: "Telefon, ism, familiya, parol va secret key majburiy",
+      });
+    }
+
+    if (!secretKeysMatch(secretKey.trim(), adminSecretKey)) {
+      return res.status(401).json({ message: "Admin ma'lumotlari noto'g'ri" });
     }
 
     const user = await User.findOne({ phone: normalizePhone(phone) }).select("+password");
 
     if (!user || user.role !== "admin") {
-      return res.status(401).json({ message: "Admin login yoki parol noto'g'ri" });
+      return res.status(401).json({ message: "Admin ma'lumotlari noto'g'ri" });
+    }
+
+    if (!namesMatch(user.name, firstName, lastName)) {
+      return res.status(401).json({ message: "Admin ma'lumotlari noto'g'ri" });
     }
 
     const valid = await bcrypt.compare(String(password), user.password);
 
     if (!valid) {
-      return res.status(401).json({ message: "Admin login yoki parol noto'g'ri" });
+      return res.status(401).json({ message: "Admin ma'lumotlari noto'g'ri" });
     }
 
     res.json({ admin: user.toPublicJSON() });
@@ -68,11 +100,68 @@ router.get("/dashboard", async (req, res, next) => {
     ]);
 
     const availableDevices = await Device.countDocuments({ status: "available" });
-    const activeBookings = await Booking.countDocuments({ status: "active" });
+    const customerActiveBookings = await Booking.aggregate([
+      { $match: { status: "active", userId: { $ne: null } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      { $unwind: "$customer" },
+      { $match: { "customer.role": "user" } },
+      { $count: "total" },
+    ]);
+    const activeBookings = customerActiveBookings[0]?.total ?? 0;
     const revenue = await Booking.aggregate([
       { $match: { status: { $ne: "cancelled" } } },
       { $group: { _id: null, total: { $sum: "$price" } } },
     ]);
+
+    const activeBookingDocs = await Booking.find({
+      status: "active",
+      userId: { $ne: null },
+    })
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    const userIds = [
+      ...new Set(
+        activeBookingDocs
+          .map((booking) => booking.userId?.toString())
+          .filter(Boolean),
+      ),
+    ];
+
+    const usersById = new Map();
+    if (userIds.length) {
+      const relatedUsers = await User.find({ _id: { $in: userIds }, role: "user" });
+      for (const user of relatedUsers) {
+        usersById.set(user._id.toString(), user);
+      }
+    }
+
+    const incomingOrders = activeBookingDocs
+      .filter((booking) => booking.userId && usersById.has(booking.userId.toString()))
+      .map((booking) => {
+      const user = usersById.get(booking.userId.toString());
+
+      return {
+        id: booking._id.toString(),
+        type: "booking",
+        title: `${booking.deviceName} bron`,
+        price: booking.price,
+        status: booking.status,
+        deviceName: booking.deviceName,
+        startHour: booking.startHour,
+        durationHours: booking.durationHours,
+        createdAt: booking.createdAt.toISOString(),
+        customerName: user.name,
+        customerPhone: user.phone,
+      };
+    });
 
     res.json({
       stats: {
@@ -85,6 +174,7 @@ router.get("/dashboard", async (req, res, next) => {
         flavors,
         totalRevenue: revenue[0]?.total ?? 0,
       },
+      incomingOrders,
     });
   } catch (error) {
     next(error);

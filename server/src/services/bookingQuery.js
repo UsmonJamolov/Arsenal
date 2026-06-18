@@ -30,8 +30,7 @@ async function listBookingsForUser(userId) {
     }
     seen.add(key);
     if (!booking.userId) {
-      booking.userId = uid;
-      await booking.save();
+      continue;
     }
     unique.push(booking);
   }

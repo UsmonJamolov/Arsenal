@@ -16,7 +16,9 @@ function getUserCartState(userId) {
 }
 
 function resolveUserId(req) {
-  return req.header("X-User-Id") || req.query.userId || req.body?.userId || null;
+  // Body userId is authoritative for writes (booking POST sends it explicitly).
+  // Header can be stale if the client session changed without a full reload.
+  return req.body?.userId || req.header("X-User-Id") || req.query.userId || null;
 }
 
 module.exports = { getUserCartState, resolveUserId, cartKey };

@@ -6,6 +6,7 @@ import {
   CalendarCheck,
   Cigarette,
   Gamepad2,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -25,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { adminRequest } from "@/lib/admin-api";
 import { clearAdminSession, getAdminSession, type AdminSession } from "@/lib/admin-auth";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import {
   type DeviceZone,
   type DeviceStatus,
@@ -35,8 +36,6 @@ import {
 } from "@/lib/game-club-data";
 import { subscribeClubUpdates } from "@/lib/socket";
 import { cn } from "@/lib/utils";
-
-const USER_APP_URL = process.env.NEXT_PUBLIC_USER_APP_URL || "http://localhost:3000";
 
 /** Admin kartochkalari — asosiy qora fonda ajralib turishi uchun */
 function AdminCard({ className, ...props }: ComponentProps<typeof Card>) {
@@ -136,6 +135,20 @@ type BookingRow = {
   createdAt: string;
 };
 
+type IncomingOrderRow = {
+  id: string;
+  type: "booking";
+  title: string;
+  price: number;
+  status: string;
+  deviceName: string;
+  startHour: string;
+  durationHours: number;
+  createdAt: string;
+  customerName: string;
+  customerPhone: string;
+};
+
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="size-4" /> },
   { key: "users", label: "Foydalanuvchilar", icon: <Users className="size-4" /> },
@@ -155,6 +168,7 @@ export function AdminApp() {
   const [error, setError] = useState("");
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [incomingOrders, setIncomingOrders] = useState<IncomingOrderRow[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [tables, setTables] = useState<TableRow[]>([]);
@@ -172,7 +186,7 @@ export function AdminApp() {
 
     try {
       const [dash, usersRes, devicesRes, tablesRes, hookahRes, bookingsRes, settingsRes] = await Promise.all([
-        adminRequest<{ stats: DashboardStats }>("/api/admin/dashboard"),
+        adminRequest<{ stats: DashboardStats; incomingOrders: IncomingOrderRow[] }>("/api/admin/dashboard"),
         adminRequest<{ users: UserRow[] }>("/api/admin/users"),
         adminRequest<{ devices: DeviceRow[] }>("/api/admin/devices"),
         adminRequest<{ tables: TableRow[] }>("/api/admin/tables"),
@@ -182,6 +196,7 @@ export function AdminApp() {
       ]);
 
       setStats(dash.stats);
+      setIncomingOrders(dash.incomingOrders ?? []);
       setUsers(usersRes.users);
       setDevices(devicesRes.devices);
       setTables(tablesRes.tables);
@@ -283,12 +298,6 @@ export function AdminApp() {
           </nav>
 
           <div className="mt-auto space-y-2 pt-6">
-            <a
-              href={USER_APP_URL}
-              className="block rounded-xl border border-violet-500/30 px-3 py-2 text-center text-sm text-violet-200 hover:bg-white/5"
-            >
-              Saytga qaytish
-            </a>
             <Button type="button" variant="secondary" className="w-full" onClick={handleLogout}>
               <LogOut className="size-4" />
               Chiqish
@@ -322,7 +331,9 @@ export function AdminApp() {
             <p className="mb-4 text-sm text-amber-200/80">Ma&apos;lumotlar yangilanmoqda...</p>
           ) : null}
 
-          {tab === "dashboard" && stats ? <DashboardPanel stats={stats} /> : null}
+          {tab === "dashboard" && stats ? (
+            <DashboardPanel stats={stats} incomingOrders={incomingOrders} />
+          ) : null}
           {tab === "dashboard" && !stats && !loading ? (
             <p className="rounded-xl border border-amber-500/30 bg-[#221c42] px-4 py-6 text-violet-100/80">
               Statistika yuklanmadi. Server va web qayta ishga tushirilganini tekshiring.
@@ -348,7 +359,13 @@ export function AdminApp() {
   );
 }
 
-function DashboardPanel({ stats }: { stats: DashboardStats }) {
+function DashboardPanel({
+  stats,
+  incomingOrders,
+}: {
+  stats: DashboardStats;
+  incomingOrders: IncomingOrderRow[];
+}) {
   const cards = [
     { label: "Foydalanuvchilar", value: stats.users },
     { label: "Qurilmalar", value: `${stats.availableDevices}/${stats.devices}` },
@@ -360,15 +377,62 @@ function DashboardPanel({ stats }: { stats: DashboardStats }) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {cards.map((card) => (
-        <AdminCard key={card.label}>
-          <CardHeader>
-            <CardDescription>{card.label}</CardDescription>
-            <CardTitle className="text-3xl text-amber-50">{card.value}</CardTitle>
-          </CardHeader>
-        </AdminCard>
-      ))}
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card) => (
+          <AdminCard key={card.label}>
+            <CardHeader>
+              <CardDescription>{card.label}</CardDescription>
+              <CardTitle className="text-3xl text-amber-50">{card.value}</CardTitle>
+            </CardHeader>
+          </AdminCard>
+        ))}
+      </div>
+
+      <AdminCard>
+        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-xl text-amber-50">
+              <Inbox className="size-5 text-brand-gold" />
+              Kelgan buyurtmalar
+            </CardTitle>
+            <CardDescription>Faol bronlar — to&apos;lov kutilmoqda yoki jarayonda</CardDescription>
+          </div>
+          <Badge className="shrink-0 border-brand-gold/30 bg-brand-gold-dim text-brand-gold">
+            {incomingOrders.length} ta
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!incomingOrders.length ? (
+            <p className="rounded-xl border border-dashed border-brand-gold/20 bg-arena-overlay/40 px-4 py-8 text-center text-sm text-text-muted">
+              Hozircha yangi buyurtma yo&apos;q.
+            </p>
+          ) : (
+            incomingOrders.map((order) => (
+              <div
+                key={order.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-brand-gold/20 bg-arena-overlay/50 p-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <Badge className="border-cyan-400/40 bg-cyan-500/15 text-cyan-200">Bron</Badge>
+                    <Badge className="border-amber-400/40 bg-amber-500/15 text-amber-200">Faol</Badge>
+                  </div>
+                  <p className="font-semibold text-text-primary">{order.title}</p>
+                  <p className="mt-1 text-sm text-text-muted">
+                    {order.customerName} · {order.customerPhone}
+                  </p>
+                  <p className="mt-1 text-xs text-text-faint">
+                    Boshlanish: {order.startHour} · {order.durationHours} soat · Qabul qilindi:{" "}
+                    {formatDateTime(order.createdAt)}
+                  </p>
+                </div>
+                <p className="shrink-0 text-lg font-bold tabular-nums text-brand-gold">{formatCurrency(order.price)}</p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </AdminCard>
     </div>
   );
 }

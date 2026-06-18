@@ -22,6 +22,38 @@ export type HookahFlavor = {
   price: number;
 };
 
+/** Aralash ta'mlar uchun bitta kalyan narxi — tanlangan ta'mlar ichidagi eng yuqori narx */
+export function getHookahUnitPrice(flavors: HookahFlavor[], selectedFlavorIds: string[]): number {
+  const selected = flavors.filter((flavor) => selectedFlavorIds.includes(flavor.id));
+  if (!selected.length) {
+    return 0;
+  }
+
+  return Math.max(...selected.map((flavor) => flavor.price));
+}
+
+export function getHookahOrderTotal(
+  flavors: HookahFlavor[],
+  selectedFlavorIds: string[],
+  quantity: number,
+): number {
+  const unitPrice = getHookahUnitPrice(flavors, selectedFlavorIds);
+  const safeQuantity = Math.max(1, Math.floor(quantity) || 1);
+  return unitPrice * safeQuantity;
+}
+
+export function getDevicesBookingTotal(
+  devices: Device[],
+  selectedDeviceIds: string[],
+  durationHours: number,
+): number {
+  const safeDuration = Math.max(1, Math.floor(durationHours) || 1);
+
+  return devices
+    .filter((device) => selectedDeviceIds.includes(device.id))
+    .reduce((sum, device) => sum + device.pricePerHour * safeDuration, 0);
+}
+
 export type BookingStatus = "active" | "completed" | "cancelled";
 
 export type Booking = {

@@ -5,17 +5,21 @@ import {
   Armchair,
   ArrowLeft,
   Check,
+  ChevronRight,
   Circle,
   Clock,
-  ShoppingCart,
+  Minus,
+  Plus,
   Users,
 } from "lucide-react";
 
 import { HookahIcon } from "@/components/icons/hookah-icon";
 import {
   getHookahFlavorImage,
+  getHookahOrderTotal,
   getHookahTableImage,
   getHookahTableMeta,
+  getHookahUnitPrice,
   HOOKAH_HERO,
   TABLE_STATUS_LABEL,
   type ClubTable,
@@ -29,13 +33,15 @@ type HookahZonePanelProps = {
   flavors: HookahFlavor[];
   tables: ClubTable[];
   loading: boolean;
-  selectedFlavorId: string;
-  selectedTableId: string;
+  selectedFlavorIds: string[];
+  selectedTableIds: string[];
   startHour: string;
   onBack?: () => void;
-  setSelectedFlavorId: (id: string) => void;
-  setSelectedTableId: (id: string) => void;
+  onToggleFlavor: (id: string) => void;
+  onToggleTable: (id: string) => void;
   setStartHour: (value: string) => void;
+  hookahQuantity: number;
+  setHookahQuantity: (value: number) => void;
   onAddHookah: () => void;
 };
 
@@ -58,16 +64,24 @@ export function HookahZonePanel({
   tables,
   loading,
   onAddHookah,
-  selectedFlavorId,
-  selectedTableId,
+  selectedFlavorIds,
+  selectedTableIds,
   startHour,
   onBack,
-  setSelectedFlavorId,
-  setSelectedTableId,
+  onToggleFlavor,
+  onToggleTable,
   setStartHour,
+  hookahQuantity,
+  setHookahQuantity,
 }: HookahZonePanelProps) {
-  const selectedFlavor = flavors.find((flavor) => flavor.id === selectedFlavorId) ?? flavors[0];
-  const totalPrice = selectedFlavor?.price ?? 0;
+  const unitPrice = getHookahUnitPrice(flavors, selectedFlavorIds);
+  const totalPrice = getHookahOrderTotal(flavors, selectedFlavorIds, hookahQuantity);
+  const selectedFlavorNames = flavors
+    .filter((flavor) => selectedFlavorIds.includes(flavor.id))
+    .map((flavor) => flavor.title);
+  const canOrder = Boolean(
+    selectedFlavorIds.length && selectedTableIds.length && startHour.trim() && hookahQuantity >= 1,
+  );
 
   if (!flavors.length || !tables.length) {
     return (
@@ -93,9 +107,9 @@ export function HookahZonePanel({
               <div className="hookah-zone__hero-copy">
                 <h1 className="hookah-zone__title">Kalyanlar</h1>
                 <p className="hookah-zone__subtitle">
-                  Stol va ta&apos;mni tanlab,
+                  Ta&apos;mlarni tanlang, kalyan sonini kiriting
                   <br />
-                  buyurtmani savatga qo&apos;shing.
+                  va buyurtmani savatga qo&apos;shing.
                 </p>
               </div>
               <motion.div
@@ -132,6 +146,7 @@ export function HookahZonePanel({
 
         <motion.section className="hookah-zone__section" {...sectionMotion(0.12)}>
           <h2 className="hookah-zone__section-title">Stol tanlang</h2>
+          <p className="hookah-zone__section-hint">Katta guruhlar uchun bir nechta stol tanlashingiz mumkin</p>
           <div className="hookah-zone__legend">
             <LegendDot color="free" label="BO'SH" />
             <LegendDot color="busy" label="BAND" />
@@ -139,7 +154,7 @@ export function HookahZonePanel({
           </div>
           <div className="hookah-zone__tables">
             {tables.map((table, index) => {
-              const active = selectedTableId === table.id;
+              const active = selectedTableIds.includes(table.id);
               const meta = getHookahTableMeta(index);
               const image = getHookahTableImage(index);
 
@@ -147,7 +162,8 @@ export function HookahZonePanel({
                 <motion.button
                   key={table.id}
                   type="button"
-                  onClick={() => setSelectedTableId(table.id)}
+                  onClick={() => onToggleTable(table.id)}
+                  aria-pressed={active}
                   className={cn(
                     "hookah-zone__table",
                     active && "hookah-zone__table--active",
@@ -195,17 +211,19 @@ export function HookahZonePanel({
         </motion.section>
 
         <motion.section className="hookah-zone__section" {...sectionMotion(0.18)}>
-          <h2 className="hookah-zone__section-title">Qo&apos;shimcha kalyanlar</h2>
+          <h2 className="hookah-zone__section-title">Ta&apos;mlarni tanlang</h2>
+          <p className="hookah-zone__section-hint">Bir nechta ta&apos;mni tanlab aralashtirishingiz mumkin</p>
           <div className="hookah-zone__flavors">
             {flavors.map((flavor, index) => {
-              const active = selectedFlavorId === flavor.id;
+              const active = selectedFlavorIds.includes(flavor.id);
               const image = getHookahFlavorImage(flavor, index);
 
               return (
                 <motion.button
                   key={flavor.id}
                   type="button"
-                  onClick={() => setSelectedFlavorId(flavor.id)}
+                  onClick={() => onToggleFlavor(flavor.id)}
+                  aria-pressed={active}
                   className={cn("hookah-zone__flavor", active && "hookah-zone__flavor--active")}
                   whileTap={{ scale: 0.97 }}
                   animate={active ? { scale: 1.02 } : { scale: 1 }}
@@ -237,31 +255,87 @@ export function HookahZonePanel({
             })}
           </div>
         </motion.section>
-      </div>
 
-      <div className="hookah-zone__dock">
-        <div className="hookah-zone__dock-panel">
-          <div className="hookah-zone__summary">
-            <div className="hookah-zone__summary-left">
-              <span className="hookah-zone__cart-icon">
-                <ShoppingCart className="size-5" strokeWidth={2} />
-              </span>
-              <span className="hookah-zone__summary-label">Jami summa</span>
+        <motion.section className="hookah-zone__order" {...sectionMotion(0.24)}>
+          <div className="hookah-zone__order-glow" aria-hidden />
+
+          <div className="hookah-zone__order-header">
+            <div>
+              <h2 className="hookah-zone__order-title">Buyurtma</h2>
+              <p className="hookah-zone__order-sub">
+                {unitPrice > 0
+                  ? `${formatCurrency(unitPrice)} / kalyan`
+                  : "Avval kamida bitta ta'm tanlang"}
+              </p>
             </div>
-            <p className="hookah-zone__summary-price">{formatCurrency(totalPrice)}</p>
+            {unitPrice > 0 ? (
+              <span className="hookah-zone__order-badge">{hookahQuantity} ta</span>
+            ) : null}
           </div>
 
-          <motion.button
+          <div className="hookah-zone__order-flavors" aria-label="Tanlangan ta'mlar">
+            {selectedFlavorNames.length ? (
+              selectedFlavorNames.map((name) => (
+                <span key={name} className="hookah-zone__flavor-chip">
+                  {name}
+                </span>
+              ))
+            ) : (
+              <span className="hookah-zone__flavor-chip hookah-zone__flavor-chip--empty">Ta'm tanlanmagan</span>
+            )}
+          </div>
+
+          <div className="hookah-zone__order-qty-row">
+            <span className="hookah-zone__order-qty-label">Kalyan soni</span>
+            <div className="hookah-zone__order-stepper">
+              <button
+                type="button"
+                className="hookah-zone__order-stepper-btn"
+                onClick={() => setHookahQuantity(Math.max(1, hookahQuantity - 1))}
+                disabled={hookahQuantity <= 1}
+                aria-label="Kalyan sonini kamaytirish"
+              >
+                <Minus className="size-4" strokeWidth={2.5} />
+              </button>
+              <span className="hookah-zone__order-stepper-value" aria-live="polite">
+                {hookahQuantity}
+              </span>
+              <button
+                type="button"
+                className="hookah-zone__order-stepper-btn"
+                onClick={() => setHookahQuantity(Math.min(99, hookahQuantity + 1))}
+                disabled={hookahQuantity >= 99}
+                aria-label="Kalyan sonini oshirish"
+              >
+                <Plus className="size-4" strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+
+          <div className="hookah-zone__order-divider" aria-hidden />
+
+          <div className="hookah-zone__order-total-row">
+            <div>
+              <p className="hookah-zone__order-total-label">Jami</p>
+              {unitPrice > 0 && hookahQuantity > 1 ? (
+                <p className="hookah-zone__order-total-meta">
+                  {hookahQuantity} × {formatCurrency(unitPrice)}
+                </p>
+              ) : null}
+            </div>
+            <p className="hookah-zone__order-total-price">{formatCurrency(totalPrice)}</p>
+          </div>
+
+          <button
             type="button"
             className="hookah-zone__submit"
             onClick={onAddHookah}
-            disabled={loading || !selectedFlavorId || !selectedTableId || !startHour.trim()}
-            whileHover={{ scale: loading ? 1 : 1.02 }}
-            whileTap={{ scale: loading ? 1 : 0.98 }}
+            disabled={loading || !canOrder}
           >
             {loading ? "Qo'shilmoqda..." : "Buyurtma berish"}
-          </motion.button>
-        </div>
+            <ChevronRight className="size-5" />
+          </button>
+        </motion.section>
       </div>
     </motion.div>
   );

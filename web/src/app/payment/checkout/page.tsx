@@ -1,17 +1,15 @@
 "use client";
 
-import { CreditCard, Lock } from "lucide-react";
+import { ChevronRight, CreditCard, Lock, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ClubSession } from "@/components/game-club/station-unlock-panel";
 import { Input } from "@/components/ui/input";
 import { getSession } from "@/lib/auth";
 import { apiRequest, setApiUserId } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { savePendingSessions } from "@/lib/user-storage";
-import type { ClubSession } from "@/components/game-club/station-unlock-panel";
 
 type PaymentIntent = {
   id: string;
@@ -132,87 +130,115 @@ function CheckoutContent() {
   const providerLabel = intent ? PROVIDER_LABEL[intent.provider] || intent.method : "";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center px-4 py-10">
-      <Card className="w-full">
-        <CardHeader>
-          <div className="mb-2 flex items-center gap-2 text-brand-cyan">
-            <CreditCard className="h-5 w-5" />
-            <span className="text-sm font-semibold">{providerLabel} — karta to&apos;lovi</span>
+    <main className="card-checkout">
+      <div className="card-checkout__shell">
+        <div className="card-checkout__glow" aria-hidden />
+
+        <header className="card-checkout__header">
+          <div className="card-checkout__provider">
+            <span className="card-checkout__provider-icon" aria-hidden>
+              <CreditCard className="size-4" strokeWidth={2} />
+            </span>
+            <span className="card-checkout__provider-label">
+              {providerLabel || "Demo"} — karta to&apos;lovi
+            </span>
           </div>
-          <CardTitle>To&apos;lovni tasdiqlang</CardTitle>
-          <CardDescription>
+          <h1 className="card-checkout__title">To&apos;lovni tasdiqlang</h1>
+          <p className="card-checkout__notice">
+            <ShieldCheck className="size-3.5 shrink-0" strokeWidth={2.25} />
             {intent?.mode === "live"
               ? "Siz provayder to'lov sahifasiga yo'naltirilasiz"
               : "Demo rejim: haqiqiy pul yechilmaydi"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {loading ? <p className="text-sm text-text-muted">Yuklanmoqda...</p> : null}
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          </p>
+        </header>
 
-          {intent && intent.mode !== "live" ? (
-            <>
-              <div className="rounded-xl border border-border-subtle bg-surface-elevated p-4">
-                <p className="text-sm text-text-muted">To&apos;lanadigan summa</p>
-                <p className="text-2xl font-bold text-text-primary">{formatCurrency(intent.total)}</p>
-              </div>
+        {loading ? <p className="card-checkout__loading">Yuklanmoqda...</p> : null}
+        {error ? <p className="card-checkout__error">{error}</p> : null}
 
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs text-text-muted">Karta raqami</label>
+        {intent && intent.mode !== "live" ? (
+          <>
+            <div className="card-checkout__amount">
+              <p className="card-checkout__amount-label">To&apos;lanadigan summa</p>
+              <p className="card-checkout__amount-value">{formatCurrency(intent.total)}</p>
+            </div>
+
+            <div className="card-checkout__form">
+              <label className="card-checkout__field">
+                <span className="card-checkout__label">Karta raqami</span>
+                <Input
+                  inputMode="numeric"
+                  placeholder="8600 0000 0000 0000"
+                  value={cardNumber}
+                  onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
+                  className="card-checkout__input h-12"
+                />
+              </label>
+
+              <div className="card-checkout__field-row">
+                <label className="card-checkout__field">
+                  <span className="card-checkout__label">Amal qilish muddati</span>
                   <Input
                     inputMode="numeric"
-                    placeholder="8600 0000 0000 0000"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                    placeholder="MM/YY"
+                    value={cardExpiry}
+                    onChange={(event) => setCardExpiry(formatExpiry(event.target.value))}
+                    className="card-checkout__input h-12"
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-text-muted">Amal qilish muddati</label>
-                    <Input
-                      inputMode="numeric"
-                      placeholder="MM/YY"
-                      value={cardExpiry}
-                      onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-text-muted">CVV</label>
-                    <Input
-                      inputMode="numeric"
-                      placeholder="000"
-                      maxLength={3}
-                      value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                    />
-                  </div>
-                </div>
+                </label>
+                <label className="card-checkout__field">
+                  <span className="card-checkout__label">CVV</span>
+                  <Input
+                    inputMode="numeric"
+                    placeholder="000"
+                    maxLength={3}
+                    value={cardCvv}
+                    onChange={(event) => setCardCvv(event.target.value.replace(/\D/g, "").slice(0, 3))}
+                    className="card-checkout__input h-12"
+                  />
+                </label>
               </div>
+            </div>
 
-              <Button className="w-full" onClick={payWithCard} disabled={paying}>
-                <Lock className="mr-2 h-4 w-4" />
+            <div className="card-checkout__actions">
+              <button
+                type="button"
+                className="card-checkout__pay"
+                onClick={payWithCard}
+                disabled={paying}
+              >
+                <Lock className="size-4" strokeWidth={2.25} />
                 {paying ? "To'lanmoqda..." : `${formatCurrency(intent.total)} to'lash`}
-              </Button>
+                <ChevronRight className="size-5" />
+              </button>
 
-              <Button className="w-full" variant="secondary" onClick={() => router.push("/")}>
+              <button
+                type="button"
+                className="card-checkout__cancel"
+                onClick={() => router.push("/")}
+              >
                 Bekor qilish
-              </Button>
-            </>
-          ) : null}
+              </button>
+            </div>
+          </>
+        ) : null}
 
-          {intent?.mode === "live" ? (
-            <p className="text-sm text-text-muted">Payme/Click/Uzum sahifasiga yo&apos;naltirilmoqda...</p>
-          ) : null}
-        </CardContent>
-      </Card>
+        {intent?.mode === "live" ? (
+          <p className="card-checkout__loading">Payme/Click/Uzum sahifasiga yo&apos;naltirilmoqda...</p>
+        ) : null}
+      </div>
     </main>
   );
 }
 
 export default function PaymentCheckoutPage() {
   return (
-    <Suspense fallback={<main className="p-10 text-sm text-text-muted">Yuklanmoqda...</main>}>
+    <Suspense
+      fallback={
+        <main className="card-checkout">
+          <p className="card-checkout__loading">Yuklanmoqda...</p>
+        </main>
+      }
+    >
       <CheckoutContent />
     </Suspense>
   );

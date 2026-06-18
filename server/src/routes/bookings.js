@@ -1,6 +1,9 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 const Device = require("../models/Device");
+const User = require("../models/User");
+const { getUserCartState } = require("../store/cartStore");
 const { pushNotification } = require("../services/settings");
 const { cancelBooking } = require("../services/bookingService");
 const { listBookingsForUser } = require("../services/bookingQuery");
@@ -25,22 +28,22 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const { deviceId, startHour, durationHours, userId } = req.body ?? {};
+    const { deviceId, deviceIds, startHour, durationHours, userId } = req.body ?? {};
 
-    if (!deviceId || !startHour || !durationHours) {
+    if (!startHour || !durationHours) {
       return res.status(400).json({
         message: "deviceId, startHour va durationHours majburiy",
       });
     }
 
-    const device = await Device.findOne({ slug: deviceId });
+    const requestedIds = Array.isArray(deviceIds)
+      ? deviceIds.map((id) => String(id).trim()).filter(Boolean)
+      : deviceId
+        ? [String(deviceId).trim()]
+        : [];
 
-    if (!device) {
-      return res.status(404).json({ message: "Qurilma topilmadi" });
-    }
-
-    if (device.status !== "available") {
-      return res.status(409).json({ message: "Tanlangan qurilma hozir bo'sh emas" });
+    if (!requestedIds.length) {
+      return res.status(400).json({ message: "Kamida bitta qurilma tanlang" });
     }
 
     const hours = Number(durationHours);
@@ -49,34 +52,70 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ message: "durationHours noto'g'ri" });
     }
 
-    const price = device.pricePerHour * hours;
+    const uniqueIds = [...new Set(requestedIds)];
+    const devices = await Promise.all(uniqueIds.map((id) => Device.findOne({ slug: id })));
+
+    if (devices.some((device) => !device)) {
+      return res.status(404).json({ message: "Qurilma topilmadi" });
+    }
+
+    const unavailable = devices.find((device) => device.status !== "available");
+    if (unavailable) {
+      return res.status(409).json({ message: `${unavailable.name} hozir bo'sh emas` });
+    }
 
     const ownerId = userId || req.userId || null;
 
-    const booking = await Booking.create({
-      userId: ownerId,
-      deviceId: device.slug,
-      deviceName: device.name,
-      startHour: String(startHour),
-      durationHours: hours,
-      price,
-      status: "active",
-    });
+    if (!ownerId || !mongoose.Types.ObjectId.isValid(ownerId)) {
+      return res.status(401).json({ message: "Bron uchun avval tizimga kiring" });
+    }
 
-    device.status = "booked";
-    await device.save();
+    const customer = await User.findById(ownerId);
 
-    const cartItem = {
-      id: booking._id.toString(),
-      type: "booking",
-      title: `${device.name} bron`,
-      price: booking.price,
-    };
+    if (!customer || customer.role !== "user") {
+      return res.status(403).json({ message: "Faqat ro'yxatdan o'tgan mijozlar bron qila oladi" });
+    }
 
-    req.userCart.cart.push(cartItem);
+    const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
+    const ownerCart = getUserCartState(ownerId);
+    const bookings = [];
+    const cartItems = [];
+
+    for (const device of devices) {
+      const price = device.pricePerHour * hours;
+
+      const booking = await Booking.create({
+        userId: ownerObjectId,
+        deviceId: device.slug,
+        deviceName: device.name,
+        startHour: String(startHour),
+        durationHours: hours,
+        price,
+        status: "active",
+      });
+
+      device.status = "booked";
+      await device.save();
+
+      const cartItem = {
+        id: booking._id.toString(),
+        type: "booking",
+        title: `${device.name} bron`,
+        price: booking.price,
+      };
+
+      ownerCart.cart.push(cartItem);
+      bookings.push(booking.toJSON());
+      cartItems.push(cartItem);
+    }
+
     await pushNotification("Bron muvaffaqiyatli qo'shildi.", "bookings");
 
-    res.status(201).json({ booking: booking.toJSON(), cartItem });
+    if (bookings.length === 1) {
+      return res.status(201).json({ booking: bookings[0], cartItem: cartItems[0] });
+    }
+
+    res.status(201).json({ bookings, cartItems });
   } catch (error) {
     next(error);
   }

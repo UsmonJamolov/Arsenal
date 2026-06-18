@@ -9,6 +9,8 @@ import { DevicesZonePanel } from "@/components/game-club/devices-zone-panel";
 import { HomePanel } from "@/components/game-club/home-panel";
 import { PcZonePanel } from "@/components/game-club/pc-zone-panel";
 import { PsZonePanel } from "@/components/game-club/ps-zone-panel";
+import { CartZonePanel } from "@/components/game-club/cart-zone-panel";
+import { PaymentZonePanel } from "@/components/game-club/payment-zone-panel";
 import { StationUnlockPanel, type ClubSession } from "@/components/game-club/station-unlock-panel";
 import { ProfileBox } from "@/components/profile/profile-box";
 import { getSession, type UserSession } from "@/lib/auth";
@@ -29,11 +31,11 @@ import {
   type DeviceStatus,
   type DeviceZone,
   filterDevicesByZone,
+  getDevicesBookingTotal,
   type HookahFlavor,
   type OrderRecord,
   ORDER_TYPE_LABEL,
   type PaymentMethod,
-  PAYMENT_METHODS,
   STATUS_LABEL,
   TABLE_STATUS_LABEL,
   type TableStatus,
@@ -42,7 +44,7 @@ import {
 } from "@/lib/game-club-data";
 import { apiRequest, setApiUserId } from "@/lib/api";
 import { clearPendingSessions, loadPendingSessions, loadProfileExtras, savePendingSessions } from "@/lib/user-storage";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import {
   subscribeClubUpdates,
   trackSocketConnection,
@@ -64,13 +66,14 @@ export function GameClubApp() {
   const [devicesLoading, setDevicesLoading] = useState(true);
   const [deviceZone, setDeviceZone] = useState<DeviceZone | null>(null);
   const [paidOrders, setPaidOrders] = useState<OrderRecord[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [startHour, setStartHour] = useState("13:00");
   const [durationHours, setDurationHours] = useState(2);
   const [tables, setTables] = useState<ClubTable[]>([]);
   const [hookahFlavors, setHookahFlavors] = useState<HookahFlavor[]>([]);
-  const [selectedTableId, setSelectedTableId] = useState("");
-  const [selectedFlavorId, setSelectedFlavorId] = useState("");
+  const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
+  const [selectedFlavorIds, setSelectedFlavorIds] = useState<string[]>([]);
+  const [hookahQuantity, setHookahQuantity] = useState(1);
   const [hookahLoading, setHookahLoading] = useState(false);
   const [hookahStartHour, setHookahStartHour] = useState("13:00");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Payme");
@@ -100,17 +103,25 @@ export function GameClubApp() {
     }
   }, [activeTab]);
 
-  const refreshCart = async () => {
+  useEffect(() => {
+    if (activeTab === "hookah") {
+      setSelectedTableIds([]);
+      setSelectedFlavorIds([]);
+      setHookahQuantity(1);
+    }
+  }, [activeTab]);
+
+  const refreshCart = useCallback(async () => {
     const data = await apiRequest<{ items: CartItem[]; total: number; paymentStatus: "pending" | "paid" }>("/api/cart");
     setCart(data.items);
     setPaymentStatus(data.paymentStatus);
-  };
+  }, []);
 
   const loadDevices = useCallback(async () => {
     const list = await apiRequest<Device[]>("/api/devices");
     setDevices(list);
     if (list.length) {
-      setSelectedDeviceId((prev) => (prev && list.some((d) => d.id === prev) ? prev : list[0].id));
+      setSelectedDeviceIds((prev) => prev.filter((id) => list.some((device) => device.id === id)));
     }
   }, []);
 
@@ -121,8 +132,8 @@ export function GameClubApp() {
     ]);
     setTables(tablesRes);
     setHookahFlavors(flavorsRes);
-    if (tablesRes.length) setSelectedTableId((prev) => prev || tablesRes[0].id);
-    if (flavorsRes.length) setSelectedFlavorId((prev) => prev || flavorsRes[0].id);
+    setSelectedTableIds((prev) => prev.filter((id) => tablesRes.some((table) => table.id === id)));
+    setSelectedFlavorIds((prev) => prev.filter((id) => flavorsRes.some((flavor) => flavor.id === id)));
   }, []);
 
   const loadBookings = useCallback(async () => {
@@ -172,7 +183,7 @@ export function GameClubApp() {
     });
     setProfileAvatarUrl(profileExtras.avatarUrl);
     await Promise.all([loadPaymentHistory(), loadBookings(), refreshCart()]);
-  }, [session?.id, loadPaymentHistory, loadBookings]);
+  }, [session?.id, loadPaymentHistory, loadBookings, refreshCart]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -206,7 +217,7 @@ export function GameClubApp() {
     }, 20000);
 
     return () => clearInterval(timer);
-  }, [liveStatus, session?.id, loadDevices, loadHookahCatalog, loadBookings]);
+  }, [liveStatus, session?.id, loadDevices, loadHookahCatalog, loadBookings, refreshCart]);
 
   useEffect(() => {
     const shouldRefresh = (entity: RealtimeEntity, targets: RealtimeEntity[]) =>
@@ -232,47 +243,29 @@ export function GameClubApp() {
     });
 
     return unsubscribe;
-  }, [loadDevices, loadHookahCatalog, loadBookings]);
+  }, [loadDevices, loadHookahCatalog, loadBookings, refreshCart]);
 
   useEffect(() => {
-    if (deviceZone !== "pc") {
-      return;
-    }
-
-    const pcs = filterDevicesByZone(devices, "pc");
-    if (!pcs.length) {
-      return;
-    }
-
-    if (!pcs.some((device) => device.id === selectedDeviceId)) {
-      setSelectedDeviceId(pcs[0].id);
-    }
-  }, [deviceZone, devices, selectedDeviceId]);
+    setSelectedDeviceIds([]);
+  }, [deviceZone]);
 
   const zoneDevices = deviceZone ? filterDevicesByZone(devices, deviceZone) : [];
-  const selectedZoneDevice =
-    zoneDevices.find((device) => device.id === selectedDeviceId) ?? zoneDevices[0];
-  const selectedDevice = selectedZoneDevice ?? devices.find((device) => device.id === selectedDeviceId);
-  const bookingPrice = selectedZoneDevice
-    ? selectedZoneDevice.pricePerHour * durationHours
-    : selectedDevice
-      ? selectedDevice.pricePerHour * durationHours
-      : 0;
+  const bookingPrice = getDevicesBookingTotal(zoneDevices, selectedDeviceIds, durationHours);
   const grandTotal = useMemo(() => sumPrice(cart), [cart]);
 
   const createBooking = async () => {
-    if (!session?.id || !selectedDeviceId) {
+    if (!session?.id || !selectedDeviceIds.length) {
       return;
     }
 
     try {
-      const result = await apiRequest<{ booking: Booking; cartItem: CartItem }>("/api/bookings", {
+      await apiRequest("/api/bookings", {
         method: "POST",
         body: JSON.stringify({
-          deviceId: selectedDeviceId,
+          deviceIds: selectedDeviceIds,
           startHour,
           durationHours,
-          userId: session?.id,
+          userId: session.id,
         }),
       });
 
@@ -284,7 +277,7 @@ export function GameClubApp() {
   };
 
   const addHookahToCart = async () => {
-    if (!selectedFlavorId || !selectedTableId || !hookahStartHour.trim()) {
+    if (!selectedFlavorIds.length || !selectedTableIds.length || !hookahStartHour.trim() || hookahQuantity < 1) {
       return;
     }
 
@@ -293,9 +286,10 @@ export function GameClubApp() {
       await apiRequest("/api/hookah/orders", {
         method: "POST",
         body: JSON.stringify({
-          flavorId: selectedFlavorId,
-          tableId: selectedTableId,
+          flavorIds: selectedFlavorIds,
+          tableIds: selectedTableIds,
           startHour: hookahStartHour.trim(),
+          quantity: hookahQuantity,
         }),
       });
       await refreshCart();
@@ -396,6 +390,7 @@ export function GameClubApp() {
       await apiRequest("/api/cart", { method: "DELETE" });
       setCart([]);
       setPaymentStatus("pending");
+      await Promise.all([loadBookings(), loadDevices()]);
     } catch {
       /* savat tozalanmadi */
     }
@@ -452,7 +447,8 @@ export function GameClubApp() {
             {activeTab === "home" && (
               <HomePanel
                 devices={devices}
-                bookingsCount={bookings.length}
+                completedBookingsCount={bookings.filter((booking) => booking.status === "completed").length}
+                cartCount={cart.length}
                 hookahCount={hookahFlavors.length}
                 liveStatus={liveStatus}
                 session={session}
@@ -475,12 +471,16 @@ export function GameClubApp() {
                 <PcZonePanel
                   devices={filterDevicesByZone(devices, "pc")}
                   loading={devicesLoading}
-                  selectedDeviceId={selectedDeviceId}
+                  selectedDeviceIds={selectedDeviceIds}
                   bookingPrice={bookingPrice}
                   durationHours={durationHours}
                   startHour={startHour}
                   onBack={() => setDeviceZone(null)}
-                  onSelect={setSelectedDeviceId}
+                  onToggleDevice={(id) =>
+                    setSelectedDeviceIds((prev) =>
+                      prev.includes(id) ? prev.filter((deviceId) => deviceId !== id) : [...prev, id],
+                    )
+                  }
                   setDurationHours={setDurationHours}
                   setStartHour={setStartHour}
                   onCreateBooking={createBooking}
@@ -489,12 +489,16 @@ export function GameClubApp() {
                 <PsZonePanel
                   devices={filterDevicesByZone(devices, "ps")}
                   loading={devicesLoading}
-                  selectedDeviceId={selectedDeviceId}
+                  selectedDeviceIds={selectedDeviceIds}
                   bookingPrice={bookingPrice}
                   durationHours={durationHours}
                   startHour={startHour}
                   onBack={() => setDeviceZone(null)}
-                  onSelect={setSelectedDeviceId}
+                  onToggleDevice={(id) =>
+                    setSelectedDeviceIds((prev) =>
+                      prev.includes(id) ? prev.filter((deviceId) => deviceId !== id) : [...prev, id],
+                    )
+                  }
                   setDurationHours={setDurationHours}
                   setStartHour={setStartHour}
                   onCreateBooking={createBooking}
@@ -505,22 +509,33 @@ export function GameClubApp() {
                 flavors={hookahFlavors}
                 tables={tables}
                 loading={hookahLoading}
-                selectedFlavorId={selectedFlavorId}
-                selectedTableId={selectedTableId}
+                selectedFlavorIds={selectedFlavorIds}
+                selectedTableIds={selectedTableIds}
                 startHour={hookahStartHour}
                 onBack={() => setActiveTab("home")}
-                setSelectedFlavorId={setSelectedFlavorId}
-                setSelectedTableId={setSelectedTableId}
+                onToggleFlavor={(id) =>
+                  setSelectedFlavorIds((prev) =>
+                    prev.includes(id) ? prev.filter((flavorId) => flavorId !== id) : [...prev, id],
+                  )
+                }
+                onToggleTable={(id) =>
+                  setSelectedTableIds((prev) =>
+                    prev.includes(id) ? prev.filter((tableId) => tableId !== id) : [...prev, id],
+                  )
+                }
                 setStartHour={setHookahStartHour}
+                hookahQuantity={hookahQuantity}
+                setHookahQuantity={setHookahQuantity}
                 onAddHookah={addHookahToCart}
               />
             )}
             {activeTab === "cart" && (
-              <CartPanel
+              <CartZonePanel
                 cart={cart}
                 grandTotal={grandTotal}
                 onClearCart={clearCart}
                 onOpenPayment={() => setActiveTab("payment")}
+                onBrowseServices={() => setActiveTab("devices")}
                 onRemoveCartItem={async (item) => {
                   if (item.type === "booking") {
                     await cancelBookingById(item.id);
@@ -711,41 +726,6 @@ function BookingPanel({
   );
 }
 
-function CartPanel({
-  cart,
-  grandTotal,
-  onClearCart,
-  onOpenPayment,
-  onRemoveCartItem,
-}: {
-  cart: CartItem[];
-  grandTotal: number;
-  onClearCart: () => void;
-  onOpenPayment: () => void;
-  onRemoveCartItem: (item: CartItem) => Promise<void>;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Savatcha</CardTitle>
-        <CardDescription>{cart.length ? "Buyurtmalar to'lovga tayyor." : "Savat hozircha bo'sh."}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <CartList cart={cart} onRemove={onRemoveCartItem} />
-        <TotalBox total={grandTotal} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <PressButton variant="payment" onClick={onOpenPayment}>
-            To&apos;lovga o&apos;tish
-          </PressButton>
-          <PressButton variant="clear" onClick={onClearCart}>
-            Tozalash
-          </PressButton>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function PaymentPanel({
   cart,
   grandTotal,
@@ -778,40 +758,15 @@ function PaymentPanel({
           onCancelSession={onCancelSession}
         />
       ) : null}
-    <Card className="pb-4">
-      <CardHeader className="mb-3">
-        <CardTitle>To&apos;lov</CardTitle>
-        <CardDescription>
-          {cart.length ? `To'lanishi kerak: ${cart.length} ta buyurtma` : "Savat bo'sh — to'lov uchun buyurtma qo'shing."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {cart.length > 0 ? (
-          <section className="space-y-3">
-            <p className="label-caps">To&apos;lov qilinadigan</p>
-            <OrderLinesList items={cart} />
-            <TotalBox total={grandTotal} />
-          </section>
-        ) : null}
-
-        <section className="space-y-3">
-          <p className="text-sm font-semibold text-text-secondary">To&apos;lov usuli</p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {PAYMENT_METHODS.map((method) => (
-              <SelectableRow key={method} active={paymentMethod === method} onClick={() => setPaymentMethod(method)}>
-                <p className="font-semibold text-text-primary">{method}</p>
-                <span className="text-xs text-text-muted">{paymentMethod === method ? "Tanlandi" : "Tanlash"}</span>
-              </SelectableRow>
-            ))}
-          </div>
-        </section>
-
-        <Button className="w-full" onClick={onPayNow} disabled={!cart.length || paymentLoading}>
-          {paymentLoading ? "To'lov ochilmoqda..." : "To'lash"}
-        </Button>
-        {paymentError ? <p className="text-sm text-red-400">{paymentError}</p> : null}
-      </CardContent>
-    </Card>
+      <PaymentZonePanel
+        cart={cart}
+        grandTotal={grandTotal}
+        paymentMethod={paymentMethod}
+        paymentLoading={paymentLoading}
+        paymentError={paymentError}
+        onPayNow={onPayNow}
+        setPaymentMethod={setPaymentMethod}
+      />
     </div>
   );
 }
@@ -945,7 +900,10 @@ function HistoryCard({
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-text-primary">{entry.booking.deviceName}</p>
                 <p className="tabular-data text-sm text-text-muted">
-                  {entry.booking.startHour}, {entry.booking.durationHours} soat
+                  Bron qilingan: {entry.booking.createdAt ? formatDateTime(entry.booking.createdAt) : "—"}
+                </p>
+                <p className="tabular-data text-xs text-text-faint">
+                  Boshlanish: {entry.booking.startHour} • {entry.booking.durationHours} soat
                 </p>
                 <Badge
                   variant={
@@ -1065,15 +1023,6 @@ function PaidOrderRow({ order, highlight = false }: { order: OrderRecord; highli
         </div>
         <p className="tabular-data shrink-0 text-sm font-bold text-brand-cyan">{formatCurrency(order.price)}</p>
       </div>
-    </div>
-  );
-}
-
-function TotalBox({ total }: { total: number }) {
-  return (
-    <div className="rounded-xl border border-brand-magenta/25 bg-brand-magenta-dim p-4">
-      <p className="text-sm text-text-muted">Jami</p>
-      <p className="tabular-data text-2xl font-bold text-text-primary">{formatCurrency(total)}</p>
     </div>
   );
 }

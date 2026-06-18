@@ -16,29 +16,57 @@ router.get("/flavors", async (req, res, next) => {
 
 router.post("/orders", async (req, res, next) => {
   try {
-    const { flavorId, tableId, startHour } = req.body ?? {};
+    const { flavorId, flavorIds, tableId, tableIds, startHour } = req.body ?? {};
 
     if (!startHour || !String(startHour).trim()) {
       return res.status(400).json({ message: "Boshlanish vaqti majburiy" });
     }
 
-    const flavor = await HookahFlavor.findOne({ slug: flavorId });
-    const table = await Table.findOne({ slug: tableId });
+    const requestedFlavorIds = Array.isArray(flavorIds)
+      ? flavorIds.map((id) => String(id).trim()).filter(Boolean)
+      : flavorId
+        ? [String(flavorId).trim()]
+        : [];
 
-    if (!flavor) {
+    const requestedTableIds = Array.isArray(tableIds)
+      ? tableIds.map((id) => String(id).trim()).filter(Boolean)
+      : tableId
+        ? [String(tableId).trim()]
+        : [];
+
+    if (!requestedFlavorIds.length) {
+      return res.status(400).json({ message: "Kamida bitta ta'm tanlang" });
+    }
+
+    if (!requestedTableIds.length) {
+      return res.status(400).json({ message: "Kamida bitta stol tanlang" });
+    }
+
+    const uniqueFlavorIds = [...new Set(requestedFlavorIds)];
+    const uniqueTableIds = [...new Set(requestedTableIds)];
+    const flavors = await Promise.all(uniqueFlavorIds.map((id) => HookahFlavor.findOne({ slug: id })));
+    const tables = await Promise.all(uniqueTableIds.map((id) => Table.findOne({ slug: id })));
+
+    if (flavors.some((flavor) => !flavor)) {
       return res.status(400).json({ message: "Ta'm topilmadi" });
     }
 
-    if (!table) {
+    if (tables.some((table) => !table)) {
       return res.status(400).json({ message: "Stol topilmadi" });
     }
 
     const hour = String(startHour).trim();
+    const quantity = Math.max(1, Math.min(99, Number.parseInt(String(req.body?.quantity ?? 1), 10) || 1));
+    const flavorTitles = flavors.map((flavor) => flavor.title).join(" + ");
+    const tableTitles = tables.map((table) => table.title).join(" + ");
+    const unitPrice = Math.max(...flavors.map((flavor) => flavor.price));
+    const totalPrice = unitPrice * quantity;
+    const quantityLabel = quantity > 1 ? `${quantity}× ` : "";
     const cartItem = {
       id: `hk-${Date.now()}`,
       type: "hookah",
-      title: `${flavor.title} (${table.title}) • ${hour}`,
-      price: flavor.price,
+      title: `${quantityLabel}${flavorTitles} (${tableTitles}) • ${hour}`,
+      price: totalPrice,
     };
 
     req.userCart.cart.push(cartItem);

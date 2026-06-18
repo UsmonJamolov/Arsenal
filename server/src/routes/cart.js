@@ -1,5 +1,6 @@
 const express = require("express");
 const { pushNotification } = require("../services/settings");
+const { cancelBooking } = require("../services/bookingService");
 
 const router = express.Router();
 
@@ -16,11 +17,26 @@ router.get("/", (req, res) => {
   });
 });
 
-router.delete("/", async (req, res) => {
-  req.userCart.cart = [];
-  req.userCart.paymentStatus = "pending";
-  await pushNotification("Savat tozalandi.", "cart");
-  res.json({ items: [], total: 0, paymentStatus: req.userCart.paymentStatus });
+router.delete("/", async (req, res, next) => {
+  try {
+    const items = [...req.userCart.cart];
+
+    for (const item of items) {
+      if (item.type !== "booking") {
+        continue;
+      }
+
+      await cancelBooking(item.id, req.userId);
+    }
+
+    req.userCart.cart = [];
+    req.userCart.paymentStatus = "pending";
+    await pushNotification("Savat tozalandi.", "cart");
+
+    res.json({ items: [], total: 0, paymentStatus: req.userCart.paymentStatus });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.delete("/:id", async (req, res) => {

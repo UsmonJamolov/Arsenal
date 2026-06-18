@@ -2,12 +2,19 @@ require("dotenv").config();
 
 module.exports = {
   port: Number(process.env.PORT) || 4000,
-  clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:3000",
+  clientOrigin:
+    process.env.CLIENT_ORIGIN ||
+    "http://localhost:3000,http://localhost:3001,http://localhost:3002",
   mongodbUri: process.env.MONGODB_URI || "mongodb://localhost:27017/arsenal_union",
   adminPhone: process.env.ADMIN_PHONE || "+998901111111",
   adminPassword: process.env.ADMIN_PASSWORD || "admin1234",
   adminEmail: process.env.ADMIN_EMAIL || "admin@arsenal.union",
-  adminName: process.env.ADMIN_NAME || "Admin",
+  adminFirstName: process.env.ADMIN_FIRST_NAME || "Admin",
+  adminLastName: process.env.ADMIN_LAST_NAME || "Union",
+  adminName:
+    process.env.ADMIN_NAME ||
+    `${process.env.ADMIN_FIRST_NAME || "Admin"} ${process.env.ADMIN_LAST_NAME || "Union"}`.trim(),
+  adminSecretKey: process.env.ADMIN_SECRET_KEY || "arsenal-admin-secret",
   agentSecret: process.env.AGENT_SECRET || "arsenal-agent-dev-secret",
   billingProvider: process.env.BILLING_PROVIDER || "custom",
   ggleapApiUrl: process.env.GGLEAP_API_URL || "",

@@ -12,7 +12,10 @@ import { saveAdminSession, type AdminSession } from "@/lib/admin-auth";
 export function AdminLogin() {
   const router = useRouter();
   const [phone, setPhone] = useState("+998901111111");
+  const [firstName, setFirstName] = useState("Admin");
+  const [lastName, setLastName] = useState("Union");
   const [password, setPassword] = useState("admin1234");
+  const [secretKey, setSecretKey] = useState("arsenal-admin-secret");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +27,13 @@ export function AdminLogin() {
     try {
       const data = await adminRequest<{ admin: AdminSession }>("/api/admin/login", {
         method: "POST",
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify({
+          phone,
+          firstName,
+          lastName,
+          password,
+          secretKey,
+        }),
       });
 
       saveAdminSession(data.admin);
@@ -37,10 +46,10 @@ export function AdminLogin() {
   };
 
   return (
-    <main className="arena-bg flex min-h-screen items-center justify-center px-4">
+    <main className="arena-bg flex min-h-screen items-center justify-center px-4 py-8">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md space-y-5 rounded-2xl border border-brand-gold/25 bg-arena-raised/90 p-8 backdrop-blur-xl"
+        className="w-full max-w-md space-y-4 rounded-2xl border border-brand-gold/25 bg-arena-raised/90 p-8 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
           <div className="flex size-12 items-center justify-center rounded-xl border border-brand-gold/30 bg-brand-gold-dim text-brand-gold">
@@ -54,12 +63,40 @@ export function AdminLogin() {
 
         <label className="block space-y-2">
           <span className="label-caps">Telefon</span>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
         </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block space-y-2">
+            <span className="label-caps">Ism</span>
+            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="label-caps">Familiya</span>
+            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" />
+          </label>
+        </div>
 
         <label className="block space-y-2">
           <span className="label-caps">Parol</span>
-          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </label>
+
+        <label className="block space-y-2">
+          <span className="label-caps">Secret key</span>
+          <Input
+            type="password"
+            value={secretKey}
+            onChange={(e) => setSecretKey(e.target.value)}
+            autoComplete="off"
+            placeholder="Admin secret key"
+          />
         </label>
 
         {error ? (
@@ -72,7 +109,9 @@ export function AdminLogin() {
           {loading ? "Kirish..." : "Admin panelga kirish"}
         </Button>
 
-        <p className="text-center text-xs text-text-faint">Default: +998901111111 / admin1234</p>
+        <p className="text-center text-xs leading-relaxed text-text-faint">
+          Default: +998901111111 · Admin Union · admin1234 · arsenal-admin-secret
+        </p>
       </form>
     </main>
   );

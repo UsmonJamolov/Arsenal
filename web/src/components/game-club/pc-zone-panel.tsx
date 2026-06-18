@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, Clock, Cpu, Monitor } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Circle, Clock, Cpu, Monitor } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +20,12 @@ const durationOptions = [1, 2, 3, 4];
 type PcZonePanelProps = {
   devices: Device[];
   loading: boolean;
-  selectedDeviceId: string;
+  selectedDeviceIds: string[];
   bookingPrice: number;
   durationHours: number;
   startHour: string;
   onBack: () => void;
-  onSelect: (id: string) => void;
+  onToggleDevice: (id: string) => void;
   setDurationHours: (value: number) => void;
   setStartHour: (value: string) => void;
   onCreateBooking: () => void;
@@ -34,17 +34,19 @@ type PcZonePanelProps = {
 export function PcZonePanel({
   devices,
   loading,
-  selectedDeviceId,
+  selectedDeviceIds,
   bookingPrice,
   durationHours,
   startHour,
   onBack,
-  onSelect,
+  onToggleDevice,
   setDurationHours,
   setStartHour,
   onCreateBooking,
 }: PcZonePanelProps) {
-  const activePc = devices.find((device) => device.id === selectedDeviceId) ?? devices[0];
+  const selectedDevices = devices.filter((device) => selectedDeviceIds.includes(device.id));
+  const canBook =
+    selectedDevices.length > 0 && selectedDevices.every((device) => device.status === "available");
 
   if (loading) {
     return (
@@ -63,7 +65,7 @@ export function PcZonePanel({
         </Button>
         <h2 className="text-2xl font-bold tracking-tight text-text-primary">PC lar holati</h2>
         <p className="mt-1 text-sm text-text-muted">
-          Qurilmani tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin.
+          Bir yoki bir nechta PC tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin.
         </p>
       </header>
 
@@ -72,7 +74,7 @@ export function PcZonePanel({
           <p className="text-sm text-text-muted">Bu zonada PC qurilmalar yo&apos;q.</p>
         ) : (
           devices.map((device, index) => {
-            const active = selectedDeviceId === device.id;
+            const active = selectedDeviceIds.includes(device.id);
             const meta = getPcStationMeta(index);
             const image = getPcDeviceImage(index);
 
@@ -80,13 +82,23 @@ export function PcZonePanel({
               <button
                 key={device.id}
                 type="button"
-                onClick={() => onSelect(device.id)}
+                onClick={() => onToggleDevice(device.id)}
+                aria-pressed={active}
                 className={cn(
                   "pc-zone__station",
                   active && "pc-zone__station--active",
                   device.status !== "available" && "pc-zone__station--dim",
                 )}
               >
+                <span className="pc-zone__station-check" aria-hidden>
+                  {active ? (
+                    <span className="pc-zone__station-mark pc-zone__station-mark--active">
+                      <Check className="size-3.5" strokeWidth={3} />
+                    </span>
+                  ) : (
+                    <Circle className="size-5 text-white/25" strokeWidth={1.5} />
+                  )}
+                </span>
                 <div className="pc-zone__station-content">
                   <p className="text-lg font-bold text-text-primary">{device.name}</p>
                   <p className="mt-0.5 tabular-data text-sm text-text-muted">
@@ -116,17 +128,19 @@ export function PcZonePanel({
       </div>
 
       <section className="pc-zone__booking">
-        {!activePc ? (
+        {!selectedDevices.length ? (
           <div className="pc-zone__booking-empty">
             <Monitor className="size-8 text-brand-cyan/60" />
             <p className="mt-3 text-lg font-semibold text-text-primary">Qurilma bron qilish</p>
-            <p className="mt-1 text-sm text-text-muted">Yuqoridan PC tanlang.</p>
+            <p className="mt-1 text-sm text-text-muted">Yuqoridan kamida bitta PC tanlang.</p>
           </div>
         ) : (
           <>
             <div>
               <h3 className="text-xl font-bold text-text-primary">Qurilma bron qilish</h3>
-              <p className="mt-1 text-sm text-text-muted">Tanlangan qurilma: {activePc.name}</p>
+              <p className="mt-1 text-sm text-text-muted">
+                Tanlangan: {selectedDevices.map((device) => device.name).join(", ")}
+              </p>
             </div>
 
             <label className="pc-zone__field">
@@ -177,7 +191,7 @@ export function PcZonePanel({
               type="button"
               className="pc-zone__submit"
               onClick={onCreateBooking}
-              disabled={activePc.status !== "available"}
+              disabled={!canBook}
             >
               Bron qilish
               <ChevronRight className="size-5" />

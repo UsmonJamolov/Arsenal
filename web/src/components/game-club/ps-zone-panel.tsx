@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, Clock, Gamepad2, Tv, Users } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Circle, Clock, Gamepad2, Tv, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +20,12 @@ const durationOptions = [1, 2, 3, 4];
 type PsZonePanelProps = {
   devices: Device[];
   loading: boolean;
-  selectedDeviceId: string;
+  selectedDeviceIds: string[];
   bookingPrice: number;
   durationHours: number;
   startHour: string;
   onBack: () => void;
-  onSelect: (id: string) => void;
+  onToggleDevice: (id: string) => void;
   setDurationHours: (value: number) => void;
   setStartHour: (value: string) => void;
   onCreateBooking: () => void;
@@ -34,17 +34,19 @@ type PsZonePanelProps = {
 export function PsZonePanel({
   devices,
   loading,
-  selectedDeviceId,
+  selectedDeviceIds,
   bookingPrice,
   durationHours,
   startHour,
   onBack,
-  onSelect,
+  onToggleDevice,
   setDurationHours,
   setStartHour,
   onCreateBooking,
 }: PsZonePanelProps) {
-  const activePs = devices.find((device) => device.id === selectedDeviceId) ?? devices[0];
+  const selectedDevices = devices.filter((device) => selectedDeviceIds.includes(device.id));
+  const canBook =
+    selectedDevices.length > 0 && selectedDevices.every((device) => device.status === "available");
 
   if (loading) {
     return (
@@ -63,7 +65,7 @@ export function PsZonePanel({
         </Button>
         <h2 className="text-2xl font-bold tracking-tight text-text-primary">PS lar holati</h2>
         <p className="mt-1 text-sm text-text-muted">
-          Qurilmani tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin.
+          Bir yoki bir nechta PS tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin.
         </p>
       </header>
 
@@ -72,7 +74,7 @@ export function PsZonePanel({
           <p className="text-sm text-text-muted">Bu zonada PS qurilmalar yo&apos;q.</p>
         ) : (
           devices.map((device, index) => {
-            const active = selectedDeviceId === device.id;
+            const active = selectedDeviceIds.includes(device.id);
             const meta = getPsStationMeta(index);
             const image = getPsDeviceImage(index);
 
@@ -80,13 +82,23 @@ export function PsZonePanel({
               <button
                 key={device.id}
                 type="button"
-                onClick={() => onSelect(device.id)}
+                onClick={() => onToggleDevice(device.id)}
+                aria-pressed={active}
                 className={cn(
                   "ps-zone__station",
                   active && "ps-zone__station--active",
                   device.status !== "available" && "ps-zone__station--dim",
                 )}
               >
+                <span className="ps-zone__station-check" aria-hidden>
+                  {active ? (
+                    <span className="ps-zone__station-mark ps-zone__station-mark--active">
+                      <Check className="size-3.5" strokeWidth={3} />
+                    </span>
+                  ) : (
+                    <Circle className="size-5 text-white/25" strokeWidth={1.5} />
+                  )}
+                </span>
                 <div className="ps-zone__station-content">
                   <p className="text-lg font-bold text-text-primary">{device.name}</p>
                   <p className="mt-0.5 tabular-data text-sm text-text-muted">
@@ -116,17 +128,19 @@ export function PsZonePanel({
       </div>
 
       <section className="ps-zone__booking">
-        {!activePs ? (
+        {!selectedDevices.length ? (
           <div className="ps-zone__booking-empty">
             <Gamepad2 className="size-8 text-brand-magenta/60" />
             <p className="mt-3 text-lg font-semibold text-text-primary">Qurilma bron qilish</p>
-            <p className="mt-1 text-sm text-text-muted">Yuqoridan PS tanlang.</p>
+            <p className="mt-1 text-sm text-text-muted">Yuqoridan kamida bitta PS tanlang.</p>
           </div>
         ) : (
           <>
             <div>
               <h3 className="text-xl font-bold text-text-primary">Qurilma bron qilish</h3>
-              <p className="mt-1 text-sm text-text-muted">Tanlangan qurilma: {activePs.name}</p>
+              <p className="mt-1 text-sm text-text-muted">
+                Tanlangan: {selectedDevices.map((device) => device.name).join(", ")}
+              </p>
             </div>
 
             <label className="ps-zone__field">
@@ -177,7 +191,7 @@ export function PsZonePanel({
               type="button"
               className="ps-zone__submit"
               onClick={onCreateBooking}
-              disabled={activePs.status !== "available"}
+              disabled={!canBook}
             >
               Bron qilish
               <ChevronRight className="size-5" />
