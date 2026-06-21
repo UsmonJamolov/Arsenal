@@ -2,6 +2,12 @@ const express = require("express");
 const HookahFlavor = require("../models/HookahFlavor");
 const Table = require("../models/Table");
 const { pushNotification } = require("../services/settings");
+const {
+  HOOKAH_MIN_FLAVOR_PERCENT,
+  normalizeMixes,
+  isMixValid,
+  buildHookahMixTitle,
+} = require("../utils/hookahMix");
 
 const router = express.Router();
 
@@ -57,7 +63,19 @@ router.post("/orders", async (req, res, next) => {
 
     const hour = String(startHour).trim();
     const quantity = Math.max(1, Math.min(99, Number.parseInt(String(req.body?.quantity ?? 1), 10) || 1));
-    const flavorTitles = flavors.map((flavor) => flavor.title).join(" + ");
+    const flavorSlugs = flavors.map((flavor) => flavor.slug);
+    const mixes = normalizeMixes(req.body?.mixes, flavorSlugs, quantity);
+
+    if (flavorSlugs.length > 1) {
+      const invalid = mixes.find((mix) => !isMixValid(mix, flavorSlugs));
+      if (invalid) {
+        return res.status(400).json({
+          message: `Har bir ta'm kamida ${HOOKAH_MIN_FLAVOR_PERCENT}% va jami 100% bo'lishi kerak`,
+        });
+      }
+    }
+
+    const flavorTitles = buildHookahMixTitle(flavors, mixes, quantity);
     const tableTitles = tables.map((table) => table.title).join(" + ");
     const unitPrice = Math.max(...flavors.map((flavor) => flavor.price));
     const totalPrice = unitPrice * quantity;

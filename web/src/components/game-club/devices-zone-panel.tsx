@@ -35,15 +35,18 @@ export function DevicesZonePanel({
 }: DevicesZonePanelProps) {
   return (
     <motion.div className="devices-zone" {...pageMotion}>
-      <div className="devices-zone__glow devices-zone__glow--cyan" aria-hidden />
-      <div className="devices-zone__glow devices-zone__glow--purple" aria-hidden />
+      <div className="devices-zone__glow devices-zone__glow--red" aria-hidden />
+      <div className="devices-zone__glow devices-zone__glow--white" aria-hidden />
 
       <motion.header className="devices-zone__header" {...sectionMotion(0)}>
-        {onBack ? (
-          <button type="button" className="devices-zone__back" onClick={onBack} aria-label="Orqaga">
-            <ArrowLeft className="size-5" strokeWidth={2} />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="devices-zone__back"
+          onClick={onBack}
+          aria-label="Orqaga"
+        >
+          <ArrowLeft className="size-5" strokeWidth={2} />
+        </button>
 
         <div className="devices-zone__header-top">
           <h1 className="devices-zone__title">Qurilmalar zonasi</h1>
@@ -51,24 +54,23 @@ export function DevicesZonePanel({
             className="devices-zone__header-icon"
             animate={{
               boxShadow: [
-                "0 0 20px rgba(200, 77, 255, 0.35), 0 0 40px rgba(200, 77, 255, 0.15)",
-                "0 0 32px rgba(200, 77, 255, 0.6), 0 0 64px rgba(200, 77, 255, 0.25)",
-                "0 0 20px rgba(200, 77, 255, 0.35), 0 0 40px rgba(200, 77, 255, 0.15)",
+                "0 0 20px rgba(200, 16, 46, 0.25), 0 0 40px rgba(200, 16, 46, 0.1)",
+                "0 0 32px rgba(200, 16, 46, 0.45), 0 0 64px rgba(200, 16, 46, 0.18)",
+                "0 0 20px rgba(200, 16, 46, 0.25), 0 0 40px rgba(200, 16, 46, 0.1)",
               ],
             }}
             transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
           >
-            <Gamepad2 className="text-[#C84DFF]" strokeWidth={1.5} />
+            <Gamepad2 className="text-[var(--au-red)]" strokeWidth={1.5} />
           </motion.div>
         </div>
-
-        <p className="devices-zone__subtitle">
-          PS yoki PC zonasini tanlang — holat alohida sahifada ko&apos;rinadi.
-        </p>
       </motion.header>
 
       {loading ? (
-        <p className="devices-zone__loading">Qurilmalar yuklanmoqda...</p>
+        <div className="devices-zone__loading-wrap">
+          <div className="app-loader__spinner" aria-hidden />
+          <p className="devices-zone__loading">Qurilmalar yuklanmoqda...</p>
+        </div>
       ) : (
         <div className="devices-zone__cards">
           <ZoneCard
@@ -78,7 +80,7 @@ export function DevicesZonePanel({
             title="PlayStation"
             subtitle="PS qurilmalari holati"
             count={psCount}
-            accent="cyan"
+            accent="red"
             delay={0.08}
             onSelect={() => onSelect("ps")}
           />
@@ -89,7 +91,7 @@ export function DevicesZonePanel({
             title="Kompyuter"
             subtitle="PC qurilmalari holati"
             count={pcCount}
-            accent="purple"
+            accent="red-dark"
             delay={0.14}
             onSelect={() => onSelect("pc")}
           />
@@ -106,7 +108,7 @@ type ZoneCardProps = {
   title: string;
   subtitle: string;
   count: number;
-  accent: "cyan" | "purple";
+  accent: "red" | "red-dark";
   delay: number;
   onSelect: () => void;
 };
@@ -130,37 +132,32 @@ function ZoneCard({
       {...sectionMotion(delay)}
       whileTap={{ scale: 0.985 }}
     >
-      <span className="devices-zone__card-inner">
-        <div className="devices-zone__card-media">
-          <img
-            src={image}
-            alt=""
-            className={cn("devices-zone__card-image", `devices-zone__card-image--${imagePosition}`)}
-            loading="lazy"
-            draggable={false}
-          />
-        </div>
+      <img
+        src={image}
+        alt=""
+        className={cn("devices-zone__card-bg", `devices-zone__card-bg--${imagePosition}`)}
+        loading="lazy"
+        draggable={false}
+      />
+      <span className="devices-zone__card-shade" aria-hidden />
 
-        <div className="devices-zone__card-content">
-          <div className="devices-zone__card-body">
-            <div className="devices-zone__card-info">
-              <span className={cn("devices-zone__card-icon", `devices-zone__card-icon--${accent}`)}>
-                <Icon strokeWidth={2} />
-              </span>
-              <p className="devices-zone__card-title">{title}</p>
-              <p className="devices-zone__card-subtitle">{subtitle}</p>
-            </div>
+      <span className="devices-zone__card-content">
+        <span className="devices-zone__card-info">
+          <span className={cn("devices-zone__card-icon", `devices-zone__card-icon--${accent}`)}>
+            <Icon strokeWidth={2} />
+          </span>
+          <span className="devices-zone__card-title">{title}</span>
+          <span className="devices-zone__card-subtitle">{subtitle}</span>
+        </span>
 
-            <div className="devices-zone__card-actions">
-              <span className={cn("devices-zone__card-badge", `devices-zone__card-badge--${accent}`)}>
-                {count} TA QURILMA
-              </span>
-              <span className={cn("devices-zone__card-arrow", `devices-zone__card-arrow--${accent}`)} aria-hidden>
-                <ChevronRight strokeWidth={2.5} />
-              </span>
-            </div>
-          </div>
-        </div>
+        <span className="devices-zone__card-actions">
+          <span className={cn("devices-zone__card-badge", `devices-zone__card-badge--${accent}`)}>
+            {count} TA QURILMA
+          </span>
+          <span className={cn("devices-zone__card-arrow", `devices-zone__card-arrow--${accent}`)} aria-hidden>
+            <ChevronRight strokeWidth={2.5} />
+          </span>
+        </span>
       </span>
     </motion.button>
   );

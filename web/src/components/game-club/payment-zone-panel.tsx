@@ -80,7 +80,7 @@ export function PaymentZonePanel({
         </section>
       ) : (
         <div className="payment-zone__empty">
-          <ShoppingBag className="size-8 text-text-faint" strokeWidth={1.75} />
+          <ShoppingBag className="size-8 text-[var(--au-muted)]" strokeWidth={1.75} />
           <p className="payment-zone__empty-title">Buyurtmalar yo&apos;q</p>
           <p className="payment-zone__empty-text">Avval savatga bron yoki kalyan qo&apos;shing.</p>
         </div>

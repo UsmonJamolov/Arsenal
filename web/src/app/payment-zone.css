@@ -1,0 +1,343 @@
+/* To'lov — Arsenal Union (oq + qizil) */
+.payment-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
+  color: var(--au-text);
+}
+
+.payment-zone__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+
+.payment-zone__header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: 0.875rem;
+  border: 1px solid rgb(200 16 46 / 0.22);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+  box-shadow: 0 4px 16px var(--au-shadow);
+}
+
+.payment-zone__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--au-text);
+}
+
+.payment-zone__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--au-muted);
+}
+
+.payment-zone__eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--au-muted);
+}
+
+.payment-zone__orders {
+  padding: 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--au-border);
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: 0 4px 24px var(--au-shadow);
+}
+
+.payment-zone__order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.payment-zone__order {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--au-border);
+  background: var(--au-bg);
+}
+
+.payment-zone__order-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(200 16 46 / 0.22);
+  background: var(--au-red-soft);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--au-red);
+}
+
+.payment-zone__order-body {
+  min-width: 0;
+}
+
+.payment-zone__order-type {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.payment-zone__order-type--hookah {
+  border: 1px solid rgb(155 10 31 / 0.25);
+  background: rgb(155 10 31 / 0.08);
+  color: var(--au-red-dark);
+}
+
+.payment-zone__order-type--booking {
+  border: 1px solid rgb(200 16 46 / 0.25);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.payment-zone__order-title {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--au-text);
+}
+
+.payment-zone__order-price {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--au-red);
+  white-space: nowrap;
+}
+
+.payment-zone__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 9rem;
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+  border: 1px dashed rgb(200 16 46 / 0.22);
+  background: rgb(255 255 255 / 0.85);
+  text-align: center;
+}
+
+.payment-zone__empty-title {
+  margin: 0.35rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--au-text);
+}
+
+.payment-zone__empty-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--au-muted);
+}
+
+.payment-zone__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border-radius: 1.125rem;
+  border: 1px solid rgb(200 16 46 / 0.18);
+  background: linear-gradient(135deg, var(--au-red-soft), rgb(255 255 255 / 0.95));
+  box-shadow: 0 4px 24px var(--au-shadow);
+}
+
+.payment-zone__total-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--au-muted);
+}
+
+.payment-zone__total-price {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.5rem, 5vw, 1.875rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--au-text);
+}
+
+.payment-zone__total-badge {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgb(200 16 46 / 0.2);
+  background: rgb(255 255 255 / 0.9);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--au-red);
+}
+
+.payment-zone__methods-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--au-text);
+}
+
+.payment-zone__method-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.payment-zone__method {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid var(--au-border);
+  background: rgb(255 255 255 / 0.96);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.payment-zone__method:hover {
+  border-color: rgb(200 16 46 / 0.28);
+  background: rgb(255 255 255 / 1);
+}
+
+.payment-zone__method--active {
+  border-color: rgb(200 16 46 / 0.45);
+  background: linear-gradient(135deg, var(--au-red-soft), rgb(255 255 255 / 0.98));
+  box-shadow: 0 4px 20px rgb(200 16 46 / 0.12);
+}
+
+.payment-zone__method-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--au-border);
+  background: var(--au-bg);
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--au-text);
+}
+
+.payment-zone__method--active .payment-zone__method-mark {
+  border-color: rgb(200 16 46 / 0.35);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.payment-zone__method-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.payment-zone__method-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--au-text);
+}
+
+.payment-zone__method-hint {
+  font-size: 0.75rem;
+  color: var(--au-muted);
+}
+
+.payment-zone__method-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--au-muted);
+  white-space: nowrap;
+}
+
+.payment-zone__method--active .payment-zone__method-status {
+  color: var(--au-red);
+}
+
+.payment-zone__pay {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 3.375rem;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--au-red);
+  color: var(--au-white);
+  font-size: 1.0625rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgb(200 16 46 / 0.28);
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.payment-zone__pay:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgb(200 16 46 / 0.35);
+}
+
+.payment-zone__pay:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.payment-zone__pay:focus-visible {
+  outline: 2px solid rgb(200 16 46 / 0.45);
+  outline-offset: 2px;
+}
+
+.payment-zone__error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--au-red-dark);
+}

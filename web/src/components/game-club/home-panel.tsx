@@ -2,20 +2,21 @@
 
 import { motion } from "framer-motion";
 import {
-  Bell,
   ChevronRight,
   Gamepad2,
   ShieldCheck,
-  ShoppingCart,
   Wifi,
 } from "lucide-react";
 
 import { getInitials, type UserSession } from "@/lib/auth";
+import { HomeNotifications } from "@/components/game-club/home-notifications";
 import {
   HOME_IMAGES,
   isPcDevice,
   isPsDevice,
+  type Booking,
   type Device,
+  type OrderRecord,
 } from "@/lib/game-club-data";
 import { type LiveStatus } from "@/lib/socket";
 import { cn, touchPress } from "@/lib/utils";
@@ -31,8 +32,8 @@ const fadeUp = {
 
 type HomePanelProps = {
   devices: Device[];
-  completedBookingsCount: number;
-  cartCount: number;
+  bookings: Booking[];
+  paidOrders: OrderRecord[];
   hookahCount: number;
   liveStatus: LiveStatus;
   session: UserSession | null;
@@ -44,8 +45,8 @@ type HomePanelProps = {
 
 export function HomePanel({
   devices,
-  completedBookingsCount,
-  cartCount,
+  bookings,
+  paidOrders,
   hookahCount,
   liveStatus,
   session,
@@ -77,8 +78,8 @@ export function HomePanel({
           style={{ backgroundImage: `url(${HOME_IMAGES.heroGamer})` }}
           aria-hidden
         />
-        <div className="home-hero__glow home-hero__glow--cyan" aria-hidden />
-        <div className="home-hero__glow home-hero__glow--purple" aria-hidden />
+        <div className="home-hero__glow home-hero__glow--red" aria-hidden />
+        <div className="home-hero__glow home-hero__glow--white" aria-hidden />
         <div className="home-hero__scrim" aria-hidden />
 
         <div className="home-hero__inner">
@@ -88,9 +89,7 @@ export function HomePanel({
               <span className="home-top__brand">Arsenal Union</span>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" className="home-glass-btn" aria-label="Bildirishnomalar">
-                <Bell className="size-[18px]" />
-              </button>
+              <HomeNotifications bookings={bookings} paidOrders={paidOrders} />
               <button
                 type="button"
                 className="home-glass-btn home-avatar-btn"
@@ -131,45 +130,9 @@ export function HomePanel({
         </div>
       </motion.section>
 
-      <motion.div
-        className="home-stats"
-        custom={1}
-        variants={fadeUp}
-        initial="hidden"
-        animate="show"
-      >
-        <div className="home-cart-stat">
-          <div className="home-cart-stat__glow" aria-hidden />
-          <div className="home-cart-stat__accent" aria-hidden />
-
-          <div className="home-cart-stat__icon-wrap">
-            <ShoppingCart className="size-5" strokeWidth={2} />
-          </div>
-
-          <div className="home-cart-stat__body">
-            <div className="home-cart-stat__top">
-              <p className="home-cart-stat__eyebrow">Savat</p>
-              {cartCount > 0 ? <span className="home-cart-stat__live" aria-hidden /> : null}
-            </div>
-            <p className="home-cart-stat__value">
-              {cartCount}
-              <span className="home-cart-stat__unit">ta</span>
-            </p>
-            <p className="home-cart-stat__label">
-              {cartCount > 0 ? "To'lovga tayyor buyurtmalar" : "Hozircha bo'sh"}
-            </p>
-          </div>
-
-          <div className="home-cart-stat__meta">
-            <p className="home-cart-stat__meta-label">Tugallangan bron</p>
-            <p className="home-cart-stat__meta-value">{completedBookingsCount}</p>
-          </div>
-        </div>
-      </motion.div>
-
       <motion.section
         className="home-glass-card home-welcome"
-        custom={2}
+        custom={1}
         variants={fadeUp}
         initial="hidden"
         animate="show"
@@ -196,39 +159,39 @@ export function HomePanel({
         </div>
       </motion.section>
 
-      <motion.section custom={3} variants={fadeUp} initial="hidden" animate="show">
+      <motion.section custom={2} variants={fadeUp} initial="hidden" animate="show">
         <h2 className="home-section-title">Nima mavjud?</h2>
         <div className="home-categories">
           <CategoryCard
             image={HOME_IMAGES.catDevices}
-            accent="cyan"
+            accent="red"
             label="Qurilmalar"
             count={`${psCount || 5} ta`}
             desc="PS5, Aksessuarlar va boshqalar"
             onClick={onOpenDevices}
           />
           <CategoryCard
-            image={HOME_IMAGES.catHookah}
-            accent="purple"
-            label="Kalyan Ta'mlari"
-            count={`${hookahCount ? `${hookahCount}+` : "25+"} ta`}
-            desc="Love66, Ice Mint, Blueberry va boshqalar"
-            onClick={onOpenHookah}
-          />
-          <CategoryCard
             image={HOME_IMAGES.catPc}
-            accent="cyan"
+            accent="red"
             label="PC Qurilmalar"
             count={`${pcCount || 15} ta`}
             desc="Gaming PC, RTX, Monitor va Aksessuarlar"
             onClick={onOpenDevices}
+          />
+          <CategoryCard
+            image={HOME_IMAGES.catHookah}
+            accent="red-dark"
+            label="Kalyan Ta'mlari"
+            count={`${hookahCount ? `${hookahCount}+` : "25+"} ta`}
+            desc="Love66, Ice Mint, Blueberry va boshqalar"
+            onClick={onOpenHookah}
           />
         </div>
       </motion.section>
 
       <motion.section
         className="home-glass-card home-trust"
-        custom={4}
+        custom={3}
         variants={fadeUp}
         initial="hidden"
         animate="show"
@@ -242,7 +205,7 @@ export function HomePanel({
             Barcha to&apos;lovlar himoyalangan. 24/7 qo&apos;llab-quvvatlash xizmati.
           </p>
         </div>
-        <ChevronRight className="size-5 shrink-0 text-[#94A3B8]" strokeWidth={2} />
+        <ChevronRight className="size-5 shrink-0 text-[var(--au-muted)]" strokeWidth={2} />
       </motion.section>
     </div>
   );
@@ -257,7 +220,7 @@ function CategoryCard({
   onClick,
 }: {
   image: string;
-  accent: "cyan" | "purple";
+  accent: "red" | "red-dark";
   label: string;
   count: string;
   desc: string;

@@ -20,10 +20,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="arena-bg flex min-h-screen items-center justify-center text-brand-cyan">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-brand-cyan/25 border-t-brand-cyan" />
-          <p className="label-caps">Yuklanmoqda...</p>
+      <div className="app-loader" role="status" aria-live="polite" aria-busy="true">
+        <div className="app-loader__inner">
+          <div className="app-loader__spinner" aria-hidden />
+          <p className="app-loader__label">Yuklanmoqda...</p>
         </div>
       </div>
     );

@@ -1,0 +1,388 @@
+/* Savatcha — Arsenal Union (oq + qizil) */
+.cart-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
+  color: var(--au-text);
+}
+
+.cart-zone__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+
+.cart-zone__header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: 0.875rem;
+  border: 1px solid rgb(200 16 46 / 0.22);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+  box-shadow: 0 4px 16px var(--au-shadow);
+}
+
+.cart-zone__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--au-text);
+}
+
+.cart-zone__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--au-muted);
+}
+
+.cart-zone__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cart-zone__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cart-zone__chip--booking {
+  border: 1px solid rgb(200 16 46 / 0.28);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.cart-zone__chip--hookah {
+  border: 1px solid rgb(155 10 31 / 0.28);
+  background: rgb(155 10 31 / 0.08);
+  color: var(--au-red-dark);
+}
+
+.cart-zone__eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--au-muted);
+}
+
+.cart-zone__orders {
+  padding: 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--au-border);
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: 0 4px 24px var(--au-shadow);
+}
+
+.cart-zone__order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.cart-zone__order {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--au-border);
+  background: var(--au-bg);
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.cart-zone__order:hover {
+  border-color: rgb(200 16 46 / 0.2);
+  background: rgb(255 255 255 / 0.9);
+}
+
+.cart-zone__order-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(200 16 46 / 0.22);
+  background: var(--au-red-soft);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--au-red);
+}
+
+.cart-zone__order-body {
+  min-width: 0;
+}
+
+.cart-zone__order-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cart-zone__order-type--booking {
+  border: 1px solid rgb(200 16 46 / 0.25);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.cart-zone__order-type--hookah {
+  border: 1px solid rgb(155 10 31 / 0.25);
+  background: rgb(155 10 31 / 0.08);
+  color: var(--au-red-dark);
+}
+
+.cart-zone__order-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--au-text);
+  word-break: break-word;
+}
+
+.cart-zone__order-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.cart-zone__order-price {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--au-red);
+  white-space: nowrap;
+}
+
+.cart-zone__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--au-border);
+  background: rgb(255 255 255 / 0.9);
+  color: var(--au-muted);
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.cart-zone__remove:hover {
+  border-color: rgb(200 16 46 / 0.35);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.cart-zone__remove:focus-visible {
+  outline: 2px solid rgb(200 16 46 / 0.4);
+  outline-offset: 2px;
+}
+
+.cart-zone__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+  border-radius: 1.125rem;
+  border: 1px solid rgb(200 16 46 / 0.18);
+  background: linear-gradient(135deg, var(--au-red-soft), rgb(255 255 255 / 0.95));
+  box-shadow: 0 4px 24px var(--au-shadow);
+}
+
+.cart-zone__total-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--au-muted);
+}
+
+.cart-zone__total-price {
+  margin: 0.25rem 0 0;
+  font-size: 1.625rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--au-text);
+}
+
+.cart-zone__total-badge {
+  flex-shrink: 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgb(200 16 46 / 0.2);
+  background: rgb(255 255 255 / 0.9);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--au-red);
+}
+
+.cart-zone__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.cart-zone__pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.875rem 1.25rem;
+  border: none;
+  border-radius: 0.875rem;
+  background: var(--au-red);
+  color: var(--au-white);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgb(200 16 46 / 0.28);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    opacity 150ms ease;
+}
+
+.cart-zone__pay:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgb(200 16 46 / 0.35);
+}
+
+.cart-zone__pay:focus-visible {
+  outline: 2px solid rgb(200 16 46 / 0.45);
+  outline-offset: 2px;
+}
+
+.cart-zone__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--au-border);
+  background: transparent;
+  color: var(--au-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.cart-zone__clear:hover {
+  border-color: rgb(200 16 46 / 0.28);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.cart-zone__clear:focus-visible {
+  outline: 2px solid rgb(200 16 46 / 0.4);
+  outline-offset: 2px;
+}
+
+.cart-zone__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2.5rem 1.25rem;
+  border-radius: 1.25rem;
+  border: 1px dashed rgb(200 16 46 / 0.2);
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 4px 24px var(--au-shadow);
+}
+
+.cart-zone__empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgb(200 16 46 / 0.18);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.cart-zone__empty-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--au-text);
+}
+
+.cart-zone__empty-text {
+  margin: 0.5rem 0 0;
+  max-width: 16rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--au-muted);
+}
+
+.cart-zone__browse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 1.25rem;
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: var(--au-red);
+  color: var(--au-white);
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 150ms ease, box-shadow 150ms ease;
+  box-shadow: 0 4px 16px rgb(200 16 46 / 0.2);
+}
+
+.cart-zone__browse:hover {
+  box-shadow: 0 6px 20px rgb(200 16 46 / 0.28);
+}
+
+.cart-zone__browse:focus-visible {
+  outline: 2px solid rgb(200 16 46 / 0.45);
+  outline-offset: 2px;
+}

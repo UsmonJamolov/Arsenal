@@ -22,6 +22,175 @@ export type HookahFlavor = {
   price: number;
 };
 
+export type HookahFlavorMix = Record<string, number>;
+
+export const HOOKAH_MIN_FLAVOR_PERCENT = 5;
+export const HOOKAH_FLAVOR_PERCENT_STEP = 5;
+
+export function snapHookahPercent(value: number): number {
+  const safe = Number.isFinite(value) ? value : HOOKAH_MIN_FLAVOR_PERCENT;
+  const snapped = Math.round(safe / HOOKAH_FLAVOR_PERCENT_STEP) * HOOKAH_FLAVOR_PERCENT_STEP;
+  return Math.max(HOOKAH_MIN_FLAVOR_PERCENT, Math.min(100, snapped));
+}
+
+function isHookahPercentOnStep(value: number): boolean {
+  return value % HOOKAH_FLAVOR_PERCENT_STEP === 0;
+}
+
+function distributeHookahRemaining(
+  others: string[],
+  remaining: number,
+  mix: HookahFlavorMix,
+): HookahFlavorMix {
+  const result: HookahFlavorMix = {};
+  const minEach = HOOKAH_MIN_FLAVOR_PERCENT;
+  const minTotal = minEach * others.length;
+  const extraRemaining = remaining - minTotal;
+  const extraSteps = extraRemaining / HOOKAH_FLAVOR_PERCENT_STEP;
+
+  const weights = others.map((id) => mix[id] ?? minEach);
+  const weightSum = weights.reduce((sum, weight) => sum + weight, 0) || others.length;
+
+  let usedSteps = 0;
+  others.forEach((id, index) => {
+    if (index === others.length - 1) {
+      const steps = extraSteps - usedSteps;
+      result[id] = minEach + steps * HOOKAH_FLAVOR_PERCENT_STEP;
+      return;
+    }
+
+    const steps = Math.round((extraSteps * weights[index]) / weightSum);
+    result[id] = minEach + steps * HOOKAH_FLAVOR_PERCENT_STEP;
+    usedSteps += steps;
+  });
+
+  return result;
+}
+
+/** Tanlangan ta'mlar uchun teng taqsimlangan foiz (5% qadamda) */
+export function createEqualHookahMix(flavorIds: string[]): HookahFlavorMix {
+  if (!flavorIds.length) {
+    return {};
+  }
+
+  if (flavorIds.length === 1) {
+    return { [flavorIds[0]]: 100 };
+  }
+
+  const count = flavorIds.length;
+  const totalSteps = 100 / HOOKAH_FLAVOR_PERCENT_STEP;
+  const minStepsEach = HOOKAH_MIN_FLAVOR_PERCENT / HOOKAH_FLAVOR_PERCENT_STEP;
+  const extraSteps = totalSteps - minStepsEach * count;
+  const baseExtra = Math.floor(extraSteps / count);
+  const extraRemainder = extraSteps - baseExtra * count;
+
+  return Object.fromEntries(
+    flavorIds.map((id, index) => [
+      id,
+      HOOKAH_MIN_FLAVOR_PERCENT +
+        (baseExtra + (index < extraRemainder ? 1 : 0)) * HOOKAH_FLAVOR_PERCENT_STEP,
+    ]),
+  );
+}
+
+export function syncHookahMixes(
+  current: HookahFlavorMix[],
+  quantity: number,
+  flavorIds: string[],
+): HookahFlavorMix[] {
+  const safeQuantity = Math.max(1, Math.floor(quantity) || 1);
+  const next: HookahFlavorMix[] = [];
+
+  for (let index = 0; index < safeQuantity; index += 1) {
+    const previous = current[index];
+    if (previous && isHookahMixValid(previous, flavorIds)) {
+      const mix: HookahFlavorMix = {};
+      flavorIds.forEach((id) => {
+        mix[id] = previous[id] ?? HOOKAH_MIN_FLAVOR_PERCENT;
+      });
+      next.push(isHookahMixValid(mix, flavorIds) ? mix : createEqualHookahMix(flavorIds));
+    } else {
+      next.push(createEqualHookahMix(flavorIds));
+    }
+  }
+
+  return next;
+}
+
+export function getHookahMixSliderMax(flavorCount: number): number {
+  if (flavorCount <= 1) {
+    return 100;
+  }
+
+  return 100 - HOOKAH_MIN_FLAVOR_PERCENT * (flavorCount - 1);
+}
+
+/** Bitta ta'm foizi o'zgarganda qolganlarini 100% ga moslashtiradi */
+export function adjustHookahMix(
+  mix: HookahFlavorMix,
+  flavorIds: string[],
+  changedId: string,
+  rawValue: number,
+): HookahFlavorMix {
+  if (!flavorIds.length) {
+    return {};
+  }
+
+  if (flavorIds.length === 1) {
+    return { [flavorIds[0]]: 100 };
+  }
+
+  const others = flavorIds.filter((id) => id !== changedId);
+  const maxChanged = getHookahMixSliderMax(flavorIds.length);
+  const changedValue = snapHookahPercent(
+    Math.min(maxChanged, Math.max(HOOKAH_MIN_FLAVOR_PERCENT, Number.isFinite(rawValue) ? rawValue : HOOKAH_MIN_FLAVOR_PERCENT)),
+  );
+  const remaining = 100 - changedValue;
+
+  if (others.length === 1) {
+    return { [changedId]: changedValue, [others[0]]: remaining };
+  }
+
+  return { [changedId]: changedValue, ...distributeHookahRemaining(others, remaining, mix) };
+}
+
+export function getHookahMixTotal(mix: HookahFlavorMix, flavorIds: string[]): number {
+  return flavorIds.reduce((sum, id) => sum + (mix[id] ?? 0), 0);
+}
+
+export function isHookahMixValid(mix: HookahFlavorMix, flavorIds: string[]): boolean {
+  if (!flavorIds.length) {
+    return false;
+  }
+
+  if (flavorIds.length === 1) {
+    return (mix[flavorIds[0]] ?? 0) === 100;
+  }
+
+  return (
+    getHookahMixTotal(mix, flavorIds) === 100 &&
+    flavorIds.every((id) => {
+      const value = mix[id] ?? 0;
+      return value >= HOOKAH_MIN_FLAVOR_PERCENT && isHookahPercentOnStep(value);
+    })
+  );
+}
+
+export function areHookahMixesValid(mixes: HookahFlavorMix[], flavorIds: string[]): boolean {
+  if (!flavorIds.length || !mixes.length) {
+    return false;
+  }
+
+  return mixes.every((mix) => isHookahMixValid(mix, flavorIds));
+}
+
+export function formatHookahMixLabel(flavors: HookahFlavor[], mix: HookahFlavorMix): string {
+  return flavors
+    .filter((flavor) => mix[flavor.id] != null)
+    .map((flavor) => `${flavor.title} ${mix[flavor.id]}%`)
+    .join(" + ");
+}
+
 /** Aralash ta'mlar uchun bitta kalyan narxi — tanlangan ta'mlar ichidagi eng yuqori narx */
 export function getHookahUnitPrice(flavors: HookahFlavor[], selectedFlavorIds: string[]): number {
   const selected = flavors.filter((flavor) => selectedFlavorIds.includes(flavor.id));
@@ -65,7 +234,88 @@ export type Booking = {
   price: number;
   status: BookingStatus;
   createdAt?: string;
+  updatedAt?: string;
 };
+
+export type BookingNotificationKind = "booked" | "paid" | "cancelled";
+
+export type BookingNotification = {
+  id: string;
+  kind: BookingNotificationKind;
+  title: string;
+  subtitle: string;
+  sortAt: number;
+};
+
+export const BOOKING_NOTIFICATION_LABEL: Record<BookingNotificationKind, string> = {
+  booked: "Bron qildingiz",
+  paid: "To'lov qildingiz",
+  cancelled: "Bronni rad qilding",
+};
+
+export function buildBookingNotifications(
+  bookings: Booking[],
+  paidOrders: OrderRecord[],
+): BookingNotification[] {
+  const paidByBookingId = new Map(
+    paidOrders.filter((order) => order.type === "booking").map((order) => [order.id, order]),
+  );
+  const paidBookingIds = new Set(paidByBookingId.keys());
+  const notifications: BookingNotification[] = [];
+
+  for (const booking of bookings) {
+    const createdAt = booking.createdAt ? new Date(booking.createdAt).getTime() : 0;
+    const updatedAt = booking.updatedAt ? new Date(booking.updatedAt).getTime() : createdAt;
+
+    notifications.push({
+      id: `${booking.id}-booked`,
+      kind: "booked",
+      title: BOOKING_NOTIFICATION_LABEL.booked,
+      subtitle: booking.deviceName,
+      sortAt: createdAt,
+    });
+
+    if (booking.status === "completed") {
+      const paidOrder = paidByBookingId.get(booking.id);
+      notifications.push({
+        id: `${booking.id}-paid`,
+        kind: "paid",
+        title: BOOKING_NOTIFICATION_LABEL.paid,
+        subtitle: booking.deviceName,
+        sortAt: paidOrder ? new Date(paidOrder.paidAt).getTime() : updatedAt,
+      });
+    }
+
+    if (booking.status === "cancelled") {
+      notifications.push({
+        id: `${booking.id}-cancelled`,
+        kind: "cancelled",
+        title: BOOKING_NOTIFICATION_LABEL.cancelled,
+        subtitle: booking.deviceName,
+        sortAt: updatedAt || createdAt,
+      });
+    }
+  }
+
+  for (const order of paidOrders) {
+    if (order.type === "booking" && paidBookingIds.has(order.id)) {
+      continue;
+    }
+
+    notifications.push({
+      id: `paid-${order.id}-${order.paidAt}`,
+      kind: "paid",
+      title: BOOKING_NOTIFICATION_LABEL.paid,
+      subtitle: order.title,
+      sortAt: new Date(order.paidAt).getTime(),
+    });
+  }
+
+  return notifications
+    .filter((item) => item.sortAt > 0)
+    .sort((a, b) => b.sortAt - a.sortAt)
+    .slice(0, 12);
+}
 
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   active: "Faol",
@@ -150,15 +400,15 @@ export function filterDevicesByZone(devices: Device[], zone: DeviceZone) {
 }
 
 export const PC_DEVICE_IMAGES = [
-  "/devices/pc-setup-1.png",
-  "/devices/pc-setup-2.png",
-  "/devices/pc-setup-1.png",
-  "/devices/pc-setup-2.png",
+  "/devices/pc-setup-1.png?v=4",
+  "/devices/pc-setup-2.png?v=4",
 ] as const;
 
-export const PC_THUMB_IMAGE = "/devices/pc-setup-2.png";
+export const PC_DEVICE_IMAGE_POSITIONS = ["center center", "center center"] as const;
 
-export const PC_HERO_IMAGE = "/devices/pc-setup-2.png";
+export const PC_THUMB_IMAGE = "/devices/pc-setup-2.png?v=4";
+
+export const PC_HERO_IMAGE = "/devices/pc-setup-2.png?v=4";
 
 export const PC_BOOKING_HERO = PC_HERO_IMAGE;
 
@@ -188,21 +438,27 @@ export function getPcDeviceImage(index: number) {
   return PC_DEVICE_IMAGES[index % PC_DEVICE_IMAGES.length];
 }
 
+export function getPcDeviceImagePosition(index: number) {
+  return PC_DEVICE_IMAGE_POSITIONS[index % PC_DEVICE_IMAGE_POSITIONS.length];
+}
+
 export function getPcThumbImage() {
   return PC_THUMB_IMAGE;
 }
 
 export const PS_DEVICE_IMAGES = [
-  "/devices/ps-01.png",
-  "/devices/ps-02.png",
-  "/devices/ps-03.png",
+  "/devices/ps-01.png?v=2",
+  "/devices/ps-02.png?v=2",
+  "/devices/ps-03.png?v=2",
 ] as const;
+
+export const PS_DEVICE_IMAGE_POSITIONS = ["center center", "center center", "center center"] as const;
 
 export const PS_BOOKING_HERO = "/devices/ps-booking-hero.png";
 
 export const DEVICE_ZONE_IMAGES = {
-  ps: "/devices/zone-ps-card.png?v=4",
-  pc: "/devices/zone-pc-card.png",
+  ps: "/devices/zone-ps-card.png?v=7",
+  pc: "/devices/zone-pc-card.png?v=4",
 } as const;
 
 export const PS_STATION_META = [
@@ -215,6 +471,10 @@ export function getPsDeviceImage(index: number) {
   return PS_DEVICE_IMAGES[index % PS_DEVICE_IMAGES.length];
 }
 
+export function getPsDeviceImagePosition(index: number) {
+  return PS_DEVICE_IMAGE_POSITIONS[index % PS_DEVICE_IMAGE_POSITIONS.length];
+}
+
 export function getPsStationMeta(index: number) {
   return PS_STATION_META[index % PS_STATION_META.length];
 }
@@ -224,7 +484,7 @@ export const HOME_IMAGES = {
   welcomePortal: "/home/welcome-portal.png",
   catDevices: "/home/cat-devices.png",
   catHookah: "/home/cat-hookah.png",
-  catPc: "/devices/pc-setup-2.png",
+  catPc: "/devices/pc-setup-2.png?v=3",
 } as const;
 
 export const HOOKAH_HERO = "/hookah/hero-lounge.png";

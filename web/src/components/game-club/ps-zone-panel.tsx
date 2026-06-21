@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   getPsDeviceImage,
+  getPsDeviceImagePosition,
   getPsStationMeta,
   PS_BOOKING_HERO,
   STATUS_LABEL,
@@ -51,7 +52,7 @@ export function PsZonePanel({
   if (loading) {
     return (
       <div className="ps-zone">
-        <p className="text-sm text-text-muted">PS qurilmalar yuklanmoqda...</p>
+        <p className="text-sm text-[var(--au-muted)]">PS qurilmalar yuklanmoqda...</p>
       </div>
     );
   }
@@ -59,19 +60,19 @@ export function PsZonePanel({
   return (
     <div className="ps-zone">
       <header className="ps-zone__header">
-        <Button type="button" variant="ghost" size="sm" className="mb-3 w-fit px-0" onClick={onBack}>
+        <Button type="button" variant="ghost" size="sm" className="zone-panel-back mb-3 w-fit px-0" onClick={onBack}>
           <ArrowLeft className="size-4" />
           Orqaga
         </Button>
-        <h2 className="text-2xl font-bold tracking-tight text-text-primary">PS lar holati</h2>
-        <p className="mt-1 text-sm text-text-muted">
+        <h2 className="text-2xl font-bold tracking-tight text-[var(--au-text)]">PS lar holati</h2>
+        <p className="mt-1 text-sm text-[var(--au-muted)]">
           Bir yoki bir nechta PS tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin.
         </p>
       </header>
 
       <div className="ps-zone__stations">
         {!devices.length ? (
-          <p className="text-sm text-text-muted">Bu zonada PS qurilmalar yo&apos;q.</p>
+          <p className="text-sm text-[var(--au-muted)]">Bu zonada PS qurilmalar yo&apos;q.</p>
         ) : (
           devices.map((device, index) => {
             const active = selectedDeviceIds.includes(device.id);
@@ -90,37 +91,43 @@ export function PsZonePanel({
                   device.status !== "available" && "ps-zone__station--dim",
                 )}
               >
+                <img
+                  src={image}
+                  alt=""
+                  className="ps-zone__station-bg"
+                  style={{ objectPosition: getPsDeviceImagePosition(index) }}
+                  loading="lazy"
+                  draggable={false}
+                />
+                <span className="ps-zone__station-shade" aria-hidden />
+
                 <span className="ps-zone__station-check" aria-hidden>
                   {active ? (
                     <span className="ps-zone__station-mark ps-zone__station-mark--active">
                       <Check className="size-3.5" strokeWidth={3} />
                     </span>
                   ) : (
-                    <Circle className="size-5 text-white/25" strokeWidth={1.5} />
+                    <Circle className="size-5 text-white/45" strokeWidth={1.5} />
                   )}
                 </span>
+
                 <div className="ps-zone__station-content">
-                  <p className="text-lg font-bold text-text-primary">{device.name}</p>
-                  <p className="mt-0.5 tabular-data text-sm text-text-muted">
+                  <p className="ps-zone__station-name">{device.name}</p>
+                  <p className="ps-zone__station-meta tabular-data">
                     {device.type} • {formatCurrency(device.pricePerHour)}/soat
                   </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-text-secondary">
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="size-3.5 text-brand-cyan" />
+                  <div className="ps-zone__station-specs">
+                    <span className="ps-zone__station-spec">
+                      <Users className="size-3.5" strokeWidth={2} />
                       {meta.seats} o&apos;rin
                     </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Tv className="size-3.5 text-brand-cyan" />
+                    <span className="ps-zone__station-spec">
+                      <Tv className="size-3.5" strokeWidth={2} />
                       {meta.display}
                     </span>
                   </div>
                   <PsStatusPill status={device.status} className="mt-3" />
                 </div>
-                <div
-                  className="ps-zone__station-art"
-                  style={{ backgroundImage: `url(${image})` }}
-                  aria-hidden
-                />
               </button>
             );
           })
@@ -130,15 +137,15 @@ export function PsZonePanel({
       <section className="ps-zone__booking">
         {!selectedDevices.length ? (
           <div className="ps-zone__booking-empty">
-            <Gamepad2 className="size-8 text-brand-magenta/60" />
-            <p className="mt-3 text-lg font-semibold text-text-primary">Qurilma bron qilish</p>
-            <p className="mt-1 text-sm text-text-muted">Yuqoridan kamida bitta PS tanlang.</p>
+            <Gamepad2 className="size-8 text-[var(--au-red)]/60" />
+            <p className="mt-3 text-lg font-semibold text-[var(--au-text)]">Qurilma bron qilish</p>
+            <p className="mt-1 text-sm text-[var(--au-muted)]">Yuqoridan kamida bitta PS tanlang.</p>
           </div>
         ) : (
           <>
             <div>
-              <h3 className="text-xl font-bold text-text-primary">Qurilma bron qilish</h3>
-              <p className="mt-1 text-sm text-text-muted">
+              <h3 className="text-xl font-bold text-[var(--au-text)]">Qurilma bron qilish</h3>
+              <p className="mt-1 text-sm text-[var(--au-muted)]">
                 Tanlangan: {selectedDevices.map((device) => device.name).join(", ")}
               </p>
             </div>
@@ -146,7 +153,7 @@ export function PsZonePanel({
             <label className="ps-zone__field">
               <span className="ps-zone__label">Boshlanish vaqti</span>
               <div className="relative">
-                <Clock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-text-faint" />
+                <Clock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--au-muted)]" />
                 <Input
                   value={startHour}
                   onChange={(event) => setStartHour(event.target.value)}
@@ -177,8 +184,8 @@ export function PsZonePanel({
 
             <div className="ps-zone__total">
               <div>
-                <p className="text-sm text-text-muted">Jami</p>
-                <p className="tabular-data text-2xl font-bold text-brand-cyan">{formatCurrency(bookingPrice)}</p>
+                <p className="text-sm text-[var(--au-muted)]">Jami</p>
+                <p className="tabular-data text-2xl font-bold text-[var(--au-red)]">{formatCurrency(bookingPrice)}</p>
               </div>
               <div
                 className="ps-zone__total-art"

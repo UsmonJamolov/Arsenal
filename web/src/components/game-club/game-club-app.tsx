@@ -32,7 +32,12 @@ import {
   type DeviceZone,
   filterDevicesByZone,
   getDevicesBookingTotal,
+  adjustHookahMix,
+  areHookahMixesValid,
+  createEqualHookahMix,
+  syncHookahMixes,
   type HookahFlavor,
+  type HookahFlavorMix,
   type OrderRecord,
   ORDER_TYPE_LABEL,
   type PaymentMethod,
@@ -74,6 +79,7 @@ export function GameClubApp() {
   const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
   const [selectedFlavorIds, setSelectedFlavorIds] = useState<string[]>([]);
   const [hookahQuantity, setHookahQuantity] = useState(1);
+  const [hookahMixes, setHookahMixes] = useState<Record<string, number>[]>([{}]);
   const [hookahLoading, setHookahLoading] = useState(false);
   const [hookahStartHour, setHookahStartHour] = useState("13:00");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Payme");
@@ -108,8 +114,13 @@ export function GameClubApp() {
       setSelectedTableIds([]);
       setSelectedFlavorIds([]);
       setHookahQuantity(1);
+      setHookahMixes([createEqualHookahMix([])]);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    setHookahMixes((current) => syncHookahMixes(current, hookahQuantity, selectedFlavorIds));
+  }, [hookahQuantity, selectedFlavorIds]);
 
   const refreshCart = useCallback(async () => {
     const data = await apiRequest<{ items: CartItem[]; total: number; paymentStatus: "pending" | "paid" }>("/api/cart");
@@ -277,7 +288,13 @@ export function GameClubApp() {
   };
 
   const addHookahToCart = async () => {
-    if (!selectedFlavorIds.length || !selectedTableIds.length || !hookahStartHour.trim() || hookahQuantity < 1) {
+    if (
+      !selectedFlavorIds.length ||
+      !selectedTableIds.length ||
+      !hookahStartHour.trim() ||
+      hookahQuantity < 1 ||
+      !areHookahMixesValid(hookahMixes, selectedFlavorIds)
+    ) {
       return;
     }
 
@@ -290,6 +307,9 @@ export function GameClubApp() {
           tableIds: selectedTableIds,
           startHour: hookahStartHour.trim(),
           quantity: hookahQuantity,
+          mixes: hookahMixes.map((mix) =>
+            Object.fromEntries(selectedFlavorIds.map((id) => [id, mix[id] ?? 0])),
+          ),
         }),
       });
       await refreshCart();
@@ -299,6 +319,14 @@ export function GameClubApp() {
     } finally {
       setHookahLoading(false);
     }
+  };
+
+  const handleHookahMixChange = (hookahIndex: number, flavorId: string, value: number) => {
+    setHookahMixes((current) =>
+      current.map((mix, index) =>
+        index === hookahIndex ? adjustHookahMix(mix, selectedFlavorIds, flavorId, value) : mix,
+      ),
+    );
   };
 
   const payNow = async () => {
@@ -399,12 +427,24 @@ export function GameClubApp() {
   return (
     <main
       className={cn(
-        "text-text-primary",
-        activeTab === "home" && "min-h-screen home-screen-bg",
-        activeTab === "devices" && !deviceZone && "min-h-screen devices-screen-bg",
-        activeTab === "devices" && deviceZone && "min-h-screen arena-bg",
-        activeTab === "hookah" && "min-h-screen hookah-screen-bg",
-        activeTab !== "home" && activeTab !== "devices" && activeTab !== "hookah" && "min-h-screen arena-bg",
+        activeTab !== "home" &&
+          activeTab !== "devices" &&
+          activeTab !== "hookah" &&
+          activeTab !== "cart" &&
+          activeTab !== "payment" &&
+          "text-text-primary",
+        activeTab === "home" && "min-h-screen home-screen-bg home-screen-theme",
+        activeTab === "devices" && !deviceZone && "min-h-screen devices-screen-bg devices-screen-theme",
+        activeTab === "devices" && deviceZone && "min-h-screen devices-screen-bg devices-screen-theme",
+        activeTab === "hookah" && "min-h-screen hookah-screen-bg hookah-screen-theme",
+        activeTab === "cart" && "min-h-screen cart-screen-bg cart-screen-theme",
+        activeTab === "payment" && "min-h-screen payment-screen-bg payment-screen-theme",
+        activeTab !== "home" &&
+          activeTab !== "devices" &&
+          activeTab !== "hookah" &&
+          activeTab !== "cart" &&
+          activeTab !== "payment" &&
+          "min-h-screen arena-bg",
       )}
     >
       <div
@@ -440,15 +480,18 @@ export function GameClubApp() {
           <div
             className={cn(
               activeTab === "devices" && !deviceZone ? "w-full max-w-[430px]" : "space-y-5",
-              (activeTab === "home" || (activeTab === "devices" && deviceZone) || activeTab === "hookah") &&
+              (activeTab === "home" ||
+                (activeTab === "devices" && deviceZone) ||
+                activeTab === "hookah" ||
+                activeTab === "cart") &&
                 "mx-auto w-full max-w-lg",
             )}
           >
             {activeTab === "home" && (
               <HomePanel
                 devices={devices}
-                completedBookingsCount={bookings.filter((booking) => booking.status === "completed").length}
-                cartCount={cart.length}
+                bookings={bookings}
+                paidOrders={paidOrders}
                 hookahCount={hookahFlavors.length}
                 liveStatus={liveStatus}
                 session={session}
@@ -526,6 +569,8 @@ export function GameClubApp() {
                 setStartHour={setHookahStartHour}
                 hookahQuantity={hookahQuantity}
                 setHookahQuantity={setHookahQuantity}
+                hookahMixes={hookahMixes}
+                onMixPercentChange={handleHookahMixChange}
                 onAddHookah={addHookahToCart}
               />
             )}

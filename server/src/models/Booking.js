@@ -28,6 +28,7 @@ bookingSchema.methods.toJSON = function toJSON() {
     price: this.price,
     status: this.status,
     createdAt: this.createdAt.toISOString(),
+    updatedAt: this.updatedAt.toISOString(),
   };
 };
 

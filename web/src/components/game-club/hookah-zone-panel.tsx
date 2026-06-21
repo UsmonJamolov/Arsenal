@@ -15,15 +15,21 @@ import {
 
 import { HookahIcon } from "@/components/icons/hookah-icon";
 import {
+  areHookahMixesValid,
   getHookahFlavorImage,
+  getHookahMixSliderMax,
+  getHookahMixTotal,
   getHookahOrderTotal,
   getHookahTableImage,
   getHookahTableMeta,
   getHookahUnitPrice,
   HOOKAH_HERO,
+  HOOKAH_FLAVOR_PERCENT_STEP,
+  HOOKAH_MIN_FLAVOR_PERCENT,
   TABLE_STATUS_LABEL,
   type ClubTable,
   type HookahFlavor,
+  type HookahFlavorMix,
   type TableStatus,
 } from "@/lib/game-club-data";
 import { formatCurrency } from "@/lib/format";
@@ -42,6 +48,8 @@ type HookahZonePanelProps = {
   setStartHour: (value: string) => void;
   hookahQuantity: number;
   setHookahQuantity: (value: number) => void;
+  hookahMixes: HookahFlavorMix[];
+  onMixPercentChange: (hookahIndex: number, flavorId: string, value: number) => void;
   onAddHookah: () => void;
 };
 
@@ -73,14 +81,21 @@ export function HookahZonePanel({
   setStartHour,
   hookahQuantity,
   setHookahQuantity,
+  hookahMixes,
+  onMixPercentChange,
 }: HookahZonePanelProps) {
   const unitPrice = getHookahUnitPrice(flavors, selectedFlavorIds);
   const totalPrice = getHookahOrderTotal(flavors, selectedFlavorIds, hookahQuantity);
   const selectedFlavorNames = flavors
     .filter((flavor) => selectedFlavorIds.includes(flavor.id))
     .map((flavor) => flavor.title);
+  const mixesValid = areHookahMixesValid(hookahMixes, selectedFlavorIds);
   const canOrder = Boolean(
-    selectedFlavorIds.length && selectedTableIds.length && startHour.trim() && hookahQuantity >= 1,
+    selectedFlavorIds.length &&
+      selectedTableIds.length &&
+      startHour.trim() &&
+      hookahQuantity >= 1 &&
+      mixesValid,
   );
 
   if (!flavors.length || !tables.length) {
@@ -116,14 +131,14 @@ export function HookahZonePanel({
                 className="hookah-zone__title-icon"
                 animate={{
                   boxShadow: [
-                    "0 0 16px rgba(177, 77, 255, 0.25)",
-                    "0 0 32px rgba(177, 77, 255, 0.55)",
-                    "0 0 16px rgba(177, 77, 255, 0.25)",
+                    "0 0 16px rgba(200, 16, 46, 0.2)",
+                    "0 0 32px rgba(200, 16, 46, 0.4)",
+                    "0 0 16px rgba(200, 16, 46, 0.2)",
                   ],
                 }}
                 transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
               >
-                <HookahIcon className="size-8 text-[#B14DFF]" strokeWidth={1.5} />
+                <HookahIcon className="size-8 text-white" strokeWidth={1.5} />
               </motion.div>
             </div>
           </div>
@@ -197,11 +212,11 @@ export function HookahZonePanel({
                   </div>
                   <span className="hookah-zone__table-check" aria-hidden>
                     {active ? (
-                      <span className="hookah-zone__check hookah-zone__check--cyan">
+                      <span className="hookah-zone__check hookah-zone__check--red">
                         <Check className="size-4" strokeWidth={3} />
                       </span>
                     ) : (
-                      <Circle className="size-6 text-white/20" strokeWidth={1.5} />
+                      <Circle className="size-6 text-[var(--au-muted)]/35" strokeWidth={1.5} />
                     )}
                   </span>
                 </motion.button>
@@ -232,11 +247,11 @@ export function HookahZonePanel({
                 >
                   <span className="hookah-zone__flavor-check" aria-hidden>
                     {active ? (
-                      <span className="hookah-zone__check hookah-zone__check--purple">
+                      <span className="hookah-zone__check hookah-zone__check--red-dark">
                         <Check className="size-3.5" strokeWidth={3} />
                       </span>
                     ) : (
-                      <Circle className="size-5 text-white/25" strokeWidth={1.5} />
+                      <Circle className="size-5 text-[var(--au-muted)]/40" strokeWidth={1.5} />
                     )}
                   </span>
                   <img
@@ -311,6 +326,76 @@ export function HookahZonePanel({
               </button>
             </div>
           </div>
+
+          {selectedFlavorIds.length > 1 ? (
+            <div className="hookah-zone__mix-section">
+              <p className="hookah-zone__mix-title">Ta&apos;m foizi</p>
+              <p className="hookah-zone__mix-hint">
+                Har bir kalyan uchun ta&apos;mlar foizi alohida. Jami 100% bo&apos;lishi va har biri{" "}
+                {HOOKAH_MIN_FLAVOR_PERCENT}% dan ({HOOKAH_FLAVOR_PERCENT_STEP}% qadamda).
+              </p>
+              {hookahMixes.map((mix, hookahIndex) => {
+                const mixTotal = getHookahMixTotal(mix, selectedFlavorIds);
+                const mixOk = mixTotal === 100 && selectedFlavorIds.every((id) => (mix[id] ?? 0) >= HOOKAH_MIN_FLAVOR_PERCENT);
+
+                return (
+                  <div key={hookahIndex} className="hookah-zone__mix-card">
+                    {hookahQuantity > 1 ? (
+                      <p className="hookah-zone__mix-card-title">Kalyan {hookahIndex + 1}</p>
+                    ) : null}
+                    {selectedFlavorIds.map((flavorId) => {
+                      const flavor = flavors.find((item) => item.id === flavorId);
+                      if (!flavor) {
+                        return null;
+                      }
+
+                      const percent = mix[flavorId] ?? HOOKAH_MIN_FLAVOR_PERCENT;
+                      const sliderMax = getHookahMixSliderMax(selectedFlavorIds.length);
+                      const fillPercent =
+                        sliderMax > HOOKAH_MIN_FLAVOR_PERCENT
+                          ? ((percent - HOOKAH_MIN_FLAVOR_PERCENT) / (sliderMax - HOOKAH_MIN_FLAVOR_PERCENT)) *
+                            100
+                          : 100;
+
+                      return (
+                        <label key={flavorId} className="hookah-zone__mix-row">
+                          <div className="hookah-zone__mix-row-head">
+                            <span className="hookah-zone__mix-flavor">{flavor.title}</span>
+                            <span className="hookah-zone__mix-value">{percent}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={HOOKAH_MIN_FLAVOR_PERCENT}
+                            max={sliderMax}
+                            step={HOOKAH_FLAVOR_PERCENT_STEP}
+                            value={percent}
+                            onChange={(event) =>
+                              onMixPercentChange(hookahIndex, flavorId, Number(event.target.value))
+                            }
+                            className="hookah-zone__mix-range"
+                            style={{ "--mix-fill": `${fillPercent}%` }}
+                            aria-label={`${flavor.title} foizi`}
+                            aria-valuemin={HOOKAH_MIN_FLAVOR_PERCENT}
+                            aria-valuemax={sliderMax}
+                            aria-valuenow={percent}
+                          />
+                        </label>
+                      );
+                    })}
+                    <p
+                      className={cn(
+                        "hookah-zone__mix-sum",
+                        !mixOk && "hookah-zone__mix-sum--invalid",
+                      )}
+                    >
+                      Jami: {mixTotal}%
+                      {!mixOk ? " — 100% bo'lishi kerak" : null}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
           <div className="hookah-zone__order-divider" aria-hidden />
 

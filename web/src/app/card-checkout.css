@@ -1,0 +1,274 @@
+/* Karta to'lov formasi — Arsenal Union (oq + qizil) */
+.card-checkout {
+  box-sizing: border-box;
+  display: flex;
+  height: 100svh;
+  max-height: 100svh;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  color: var(--au-text);
+  background-color: var(--au-bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(200 16 46 / 0.06), transparent 55%),
+    radial-gradient(ellipse 55% 40% at 100% 15%, rgb(255 255 255 / 0.9), transparent 50%),
+    radial-gradient(ellipse 45% 35% at 0% 40%, rgb(200 16 46 / 0.04), transparent 45%);
+}
+
+.card-checkout__shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 26rem;
+  height: calc(100svh - 1.5rem);
+  min-height: calc(100svh - 1.5rem);
+  max-height: calc(100svh - 1.5rem);
+  padding: 1.25rem;
+  border-radius: 1.5rem;
+  border: 1px solid var(--au-border);
+  background: rgb(255 255 255 / 0.98);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.8) inset,
+    0 24px 56px var(--au-shadow);
+  overflow: hidden;
+}
+
+.card-checkout__glow {
+  position: absolute;
+  top: -4rem;
+  right: -3rem;
+  width: 10rem;
+  height: 10rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(200 16 46 / 0.14) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.card-checkout__header {
+  position: relative;
+  z-index: 1;
+}
+
+.card-checkout__provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-checkout__provider-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(200 16 46 / 0.22);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.card-checkout__provider-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--au-red);
+}
+
+.card-checkout__title {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--au-text);
+}
+
+.card-checkout__notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0.5rem 0 0;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgb(200 16 46 / 0.18);
+  background: var(--au-red-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--au-red-dark);
+}
+
+.card-checkout__loading {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--au-muted);
+}
+
+.card-checkout__error {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(200 16 46 / 0.28);
+  background: rgb(200 16 46 / 0.08);
+  font-size: 0.8125rem;
+  color: var(--au-red-dark);
+}
+
+.card-checkout__amount {
+  position: relative;
+  z-index: 1;
+  padding: 0.875rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgb(200 16 46 / 0.18);
+  background: linear-gradient(135deg, var(--au-red-soft), rgb(255 255 255 / 0.95));
+  box-shadow: 0 4px 24px var(--au-shadow);
+}
+
+.card-checkout__amount-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--au-muted);
+}
+
+.card-checkout__amount-value {
+  margin: 0.35rem 0 0;
+  font-size: clamp(1.625rem, 5vw, 2rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--au-text);
+}
+
+.card-checkout__form {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 0;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--au-border);
+  background: var(--au-bg);
+}
+
+.card-checkout__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.card-checkout__field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.card-checkout__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--au-muted);
+}
+
+.card-checkout__input {
+  border-color: var(--au-border) !important;
+  background: rgb(255 255 255 / 0.96) !important;
+  color: var(--au-text) !important;
+}
+
+.card-checkout__input::placeholder {
+  color: rgb(110 110 115 / 0.65) !important;
+}
+
+.card-checkout__input:focus {
+  border-color: rgb(200 16 46 / 0.45) !important;
+  box-shadow: 0 0 0 3px rgb(200 16 46 / 0.12) !important;
+}
+
+.card-checkout__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  width: 100%;
+  margin-top: auto;
+}
+
+.card-checkout__pay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 3rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--au-red);
+  color: var(--au-white);
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgb(200 16 46 / 0.28);
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.card-checkout__pay:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgb(200 16 46 / 0.35);
+}
+
+.card-checkout__pay:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.card-checkout__pay:focus-visible {
+  outline: 2px solid rgb(200 16 46 / 0.45);
+  outline-offset: 2px;
+}
+
+.card-checkout__cancel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--au-border);
+  background: transparent;
+  color: var(--au-muted);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.card-checkout__cancel:hover {
+  border-color: rgb(200 16 46 / 0.28);
+  background: var(--au-red-soft);
+  color: var(--au-red);
+}
+
+.card-checkout__cancel:focus-visible {
+  outline: 2px solid rgb(200 16 46 / 0.35);
+  outline-offset: 2px;
+}

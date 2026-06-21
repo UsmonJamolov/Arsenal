@@ -63,16 +63,16 @@ export function MobileBottomNav({ activeTab, cartCount, profileAvatarUrl, onChan
                     alt=""
                     className={cn(
                       "home-nav__avatar shrink-0 rounded-full object-cover ring-2",
-                      active ? "ring-brand-cyan" : "ring-border-default",
+                      active ? "ring-[var(--au-red)]" : "ring-border-default",
                     )}
                   />
                 ) : (
                   <span className={cn("home-nav__icon-wrap", active && "home-nav__icon-wrap--active")}>
-                    <Icon className={cn("home-nav__icon", active && "text-[#00E5FF]")} strokeWidth={active ? 2.5 : 2} />
+                    <Icon className={cn("home-nav__icon", active && "text-[var(--au-red)]")} strokeWidth={active ? 2.5 : 2} />
                   </span>
                 )}
                 {showBadge ? (
-                  <span className="absolute -right-2 -top-1.5 flex size-4 items-center justify-center rounded-full bg-brand-magenta text-[9px] font-bold text-white">
+                  <span className="home-nav__cart-badge">
                     {cartCount > 9 ? "9+" : cartCount}
                   </span>
                 ) : null}
