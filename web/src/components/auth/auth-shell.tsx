@@ -1,8 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { KeyRound, LogIn, Send, Shield } from "lucide-react";
+import { KeyRound, LogIn, Send } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+
+import { BrandLogo } from "@/components/brand-logo";
 
 import { Input } from "@/components/ui/input";
 import { apiRequest, setApiUserId } from "@/lib/api";
@@ -82,7 +84,7 @@ export function AuthShell() {
           <div className="auth-card relative">
             <div className="mb-6 flex flex-col items-center text-center">
               <div className="auth-card__logo mb-4">
-                <Shield className="size-7 text-brand-cyan" strokeWidth={1.75} />
+                <BrandLogo size="lg" />
               </div>
               <p className="text-xs font-bold tracking-[0.28em] text-text-secondary">ARSENAL UNION</p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">

@@ -14,7 +14,8 @@ const { broadcastUpdate } = require("../realtime");
 
 async function pushNotification(message, entity = "all") {
   const settings = await getSettings();
-  settings.notifications = [message, ...settings.notifications.slice(0, 9)];
+  const previous = Array.isArray(settings.notifications) ? settings.notifications : [];
+  settings.notifications = [message, ...previous.slice(0, 9)];
   await settings.save();
   broadcastUpdate({ entity, message });
   return settings.notifications;

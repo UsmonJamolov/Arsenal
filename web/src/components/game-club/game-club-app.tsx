@@ -12,8 +12,8 @@ import { PsZonePanel } from "@/components/game-club/ps-zone-panel";
 import { CartZonePanel } from "@/components/game-club/cart-zone-panel";
 import { PaymentZonePanel } from "@/components/game-club/payment-zone-panel";
 import { StationUnlockPanel, type ClubSession } from "@/components/game-club/station-unlock-panel";
-import { ProfileBox } from "@/components/profile/profile-box";
-import { getSession, type UserSession } from "@/lib/auth";
+import { ProfilePanel } from "@/components/profile/profile-panel";
+import { getSession, clearSession, type UserSession } from "@/lib/auth";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  BOOKING_STATUS_LABEL,
   type Booking,
-  type BookingStatus,
   type CartItem,
   type ClubTable,
   type Device,
@@ -49,7 +47,7 @@ import {
 } from "@/lib/game-club-data";
 import { apiRequest, setApiUserId } from "@/lib/api";
 import { clearPendingSessions, loadPendingSessions, loadProfileExtras, savePendingSessions } from "@/lib/user-storage";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import {
   subscribeClubUpdates,
   trackSocketConnection,
@@ -92,6 +90,8 @@ export function GameClubApp() {
   const [pendingSessions, setPendingSessions] = useState<ClubSession[]>([]);
   const [lastPaymentTotal, setLastPaymentTotal] = useState<number | null>(null);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = getSession();
@@ -186,6 +186,15 @@ export function GameClubApp() {
       return;
     }
 
+    try {
+      await apiRequest(`/api/auth/users/${encodeURIComponent(session.id)}`);
+    } catch {
+      clearSession();
+      setApiUserId(null);
+      window.location.replace("/auth");
+      return;
+    }
+
     setPendingSessions(loadPendingSessions<ClubSession>(session.id));
     const profileExtras = loadProfileExtras(session.id, {
       firstName: session.name.split(" ")[0] ?? "",
@@ -265,9 +274,26 @@ export function GameClubApp() {
   const grandTotal = useMemo(() => sumPrice(cart), [cart]);
 
   const createBooking = async () => {
-    if (!session?.id || !selectedDeviceIds.length) {
+    if (!session?.id) {
+      setBookingError("Bron uchun avval tizimga kiring");
       return;
     }
+
+    if (!selectedDeviceIds.length) {
+      setBookingError("Kamida bitta qurilma tanlang");
+      return;
+    }
+
+    const selectedDevices = zoneDevices.filter((device) => selectedDeviceIds.includes(device.id));
+    const blocked = selectedDevices.find((device) => device.status !== "available");
+    if (blocked) {
+      setBookingError(`${blocked.name} hozir bo'sh emas. Boshqa qurilma tanlang.`);
+      return;
+    }
+
+    setBookingLoading(true);
+    setBookingError(null);
+    setApiUserId(session.id);
 
     try {
       await apiRequest("/api/bookings", {
@@ -280,10 +306,18 @@ export function GameClubApp() {
         }),
       });
 
-      await Promise.all([loadBookings(), loadDevices(), refreshCart()]);
+      try {
+        await Promise.all([loadBookings(), loadDevices(), refreshCart()]);
+      } catch {
+        /* bron qo'shildi, ro'yxatlar keyinroq yangilanadi */
+      }
+
+      setSelectedDeviceIds([]);
       setActiveTab("cart");
-    } catch {
-      /* bron qo'shilmadi */
+    } catch (error) {
+      setBookingError(error instanceof Error ? error.message : "Bron qo'shilmadi");
+    } finally {
+      setBookingLoading(false);
     }
   };
 
@@ -368,10 +402,6 @@ export function GameClubApp() {
   };
 
   const cancelBookingById = async (bookingId: string, deviceId?: string) => {
-    if (!confirm("Bronni bekor qilasizmi? Qurilma yana bo'sh bo'ladi.")) {
-      return;
-    }
-
     try {
       await apiRequest(`/api/bookings/${bookingId}/cancel`, {
         method: "POST",
@@ -391,10 +421,6 @@ export function GameClubApp() {
   };
 
   const cancelSessionById = async (sessionId: string, deviceId?: string) => {
-    if (!confirm("Sessiyani/vaqtni bekor qilasizmi? Qurilma qulflanadi.")) {
-      return;
-    }
-
     try {
       await apiRequest(`/api/sessions/${sessionId}/cancel`, {
         method: "POST",
@@ -432,18 +458,21 @@ export function GameClubApp() {
           activeTab !== "hookah" &&
           activeTab !== "cart" &&
           activeTab !== "payment" &&
+          activeTab !== "profile" &&
           "text-text-primary",
         activeTab === "home" && "min-h-screen home-screen-bg home-screen-theme",
         activeTab === "devices" && !deviceZone && "min-h-screen devices-screen-bg devices-screen-theme",
         activeTab === "devices" && deviceZone && "min-h-screen devices-screen-bg devices-screen-theme",
         activeTab === "hookah" && "min-h-screen hookah-screen-bg hookah-screen-theme",
-        activeTab === "cart" && "min-h-screen cart-screen-bg cart-screen-theme",
+        activeTab === "cart" && "min-h-screen min-h-dvh home-screen-bg home-screen-theme",
         activeTab === "payment" && "min-h-screen payment-screen-bg payment-screen-theme",
+        activeTab === "profile" && "min-h-screen min-h-dvh home-screen-bg home-screen-theme",
         activeTab !== "home" &&
           activeTab !== "devices" &&
           activeTab !== "hookah" &&
           activeTab !== "cart" &&
           activeTab !== "payment" &&
+          activeTab !== "profile" &&
           "min-h-screen arena-bg",
       )}
     >
@@ -452,7 +481,13 @@ export function GameClubApp() {
           "relative mx-auto flex w-full flex-col",
           activeTab === "devices" && !deviceZone
             ? "devices-screen-layout min-h-screen max-w-[430px] px-6 py-5"
-            : "app-mobile-nav-padding min-h-screen max-w-7xl px-4 py-6 sm:px-6 md:pb-6 lg:px-8",
+            : activeTab === "hookah"
+              ? "hookah-screen-layout w-full max-w-[430px] px-4 pt-4"
+              : activeTab === "profile"
+                ? "app-mobile-nav-padding min-h-screen w-full max-w-[430px] px-4 pt-4 pb-2"
+                : activeTab === "cart"
+                  ? "app-mobile-nav-padding min-h-screen w-full max-w-[430px] px-4 pt-4 pb-2"
+                  : "app-mobile-nav-padding min-h-screen max-w-7xl px-4 py-6 sm:px-6 md:pb-6 lg:px-8",
           activeTab === "home" && "min-h-0",
         )}
       >
@@ -471,18 +506,28 @@ export function GameClubApp() {
 
         <section
           className={cn(
-            "grid min-h-0",
+            activeTab === "hookah" || activeTab === "profile" ? "w-full" : "grid min-h-0",
             activeTab === "home" && "gap-5 pt-6 pb-0",
+            activeTab === "cart" && "gap-0 pt-0 pb-0",
             activeTab === "devices" && !deviceZone && "gap-0 pt-0 pb-0",
-            activeTab !== "home" && !(activeTab === "devices" && !deviceZone) && "gap-5 py-2",
+            activeTab === "hookah" && "gap-0 pt-0 pb-0",
+            activeTab === "profile" && "gap-0 pt-0 pb-0",
+            activeTab !== "home" &&
+              !(activeTab === "devices" && !deviceZone) &&
+              activeTab !== "hookah" &&
+              activeTab !== "profile" &&
+              "gap-5 py-2",
           )}
         >
           <div
             className={cn(
-              activeTab === "devices" && !deviceZone ? "w-full max-w-[430px]" : "space-y-5",
+              activeTab === "devices" && !deviceZone
+                ? "w-full max-w-[430px]"
+                :               activeTab === "hookah" || activeTab === "profile" || activeTab === "cart"
+                  ? "mx-auto w-full max-w-[430px]"
+                  : "space-y-5",
               (activeTab === "home" ||
                 (activeTab === "devices" && deviceZone) ||
-                activeTab === "hookah" ||
                 activeTab === "cart") &&
                 "mx-auto w-full max-w-lg",
             )}
@@ -518,12 +563,20 @@ export function GameClubApp() {
                   bookingPrice={bookingPrice}
                   durationHours={durationHours}
                   startHour={startHour}
+                  bookingLoading={bookingLoading}
+                  bookingError={bookingError}
                   onBack={() => setDeviceZone(null)}
-                  onToggleDevice={(id) =>
+                  onToggleDevice={(id) => {
+                    const device = devices.find((item) => item.id === id);
+                    if (device && device.status !== "available" && !selectedDeviceIds.includes(id)) {
+                      setBookingError(`${device.name} hozir bo'sh emas`);
+                      return;
+                    }
+                    setBookingError(null);
                     setSelectedDeviceIds((prev) =>
                       prev.includes(id) ? prev.filter((deviceId) => deviceId !== id) : [...prev, id],
-                    )
-                  }
+                    );
+                  }}
                   setDurationHours={setDurationHours}
                   setStartHour={setStartHour}
                   onCreateBooking={createBooking}
@@ -536,12 +589,20 @@ export function GameClubApp() {
                   bookingPrice={bookingPrice}
                   durationHours={durationHours}
                   startHour={startHour}
+                  bookingLoading={bookingLoading}
+                  bookingError={bookingError}
                   onBack={() => setDeviceZone(null)}
-                  onToggleDevice={(id) =>
+                  onToggleDevice={(id) => {
+                    const device = devices.find((item) => item.id === id);
+                    if (device && device.status !== "available" && !selectedDeviceIds.includes(id)) {
+                      setBookingError(`${device.name} hozir bo'sh emas`);
+                      return;
+                    }
+                    setBookingError(null);
                     setSelectedDeviceIds((prev) =>
                       prev.includes(id) ? prev.filter((deviceId) => deviceId !== id) : [...prev, id],
-                    )
-                  }
+                    );
+                  }}
                   setDurationHours={setDurationHours}
                   setStartHour={setStartHour}
                   onCreateBooking={createBooking}
@@ -555,7 +616,9 @@ export function GameClubApp() {
                 selectedFlavorIds={selectedFlavorIds}
                 selectedTableIds={selectedTableIds}
                 startHour={hookahStartHour}
+                cartCount={cart.length}
                 onBack={() => setActiveTab("home")}
+                onOpenCart={() => setActiveTab("cart")}
                 onToggleFlavor={(id) =>
                   setSelectedFlavorIds((prev) =>
                     prev.includes(id) ? prev.filter((flavorId) => flavorId !== id) : [...prev, id],
@@ -621,7 +684,7 @@ export function GameClubApp() {
                 paidOrders={paidOrders}
                 phone={phone}
                 session={session}
-                setPhone={setPhone}
+                onPhoneChange={setPhone}
                 onAvatarChange={setProfileAvatarUrl}
                 onCancelBooking={cancelBookingById}
               />
@@ -816,36 +879,6 @@ function PaymentPanel({
   );
 }
 
-function ProfilePanel({
-  bookings,
-  paidOrders,
-  phone,
-  session,
-  setPhone,
-  onAvatarChange,
-  onCancelBooking,
-}: {
-  bookings: Booking[];
-  paidOrders: OrderRecord[];
-  phone: string;
-  session: UserSession;
-  setPhone: (value: string) => void;
-  onAvatarChange: (avatarUrl: string | null) => void;
-  onCancelBooking: (bookingId: string, deviceId?: string) => Promise<void>;
-}) {
-  return (
-    <div className="space-y-5">
-      <ProfileBox
-        session={session}
-        phone={phone}
-        onPhoneChange={setPhone}
-        onAvatarChange={onAvatarChange}
-      />
-      <HistoryCard bookings={bookings} paidOrders={paidOrders} onCancelBooking={onCancelBooking} />
-    </div>
-  );
-}
-
 function AsidePanel({
   bookings,
   cart,
@@ -892,102 +925,6 @@ function AsidePanel({
         </CardContent>
       </Card>
     </aside>
-  );
-}
-
-function HistoryCard({
-  bookings,
-  paidOrders,
-  onCancelBooking,
-}: {
-  bookings: Booking[];
-  paidOrders: OrderRecord[];
-  onCancelBooking: (bookingId: string, deviceId?: string) => Promise<void>;
-}) {
-  const [visibleCount, setVisibleCount] = useState(3);
-
-  const historyEntries = useMemo(() => {
-    const bookingIds = new Set(bookings.map((booking) => booking.id));
-    const dedupedPaidOrders = paidOrders.filter(
-      (order) => order.type !== "booking" || !bookingIds.has(order.id),
-    );
-
-    return [
-      ...bookings.map((booking) => ({
-        key: `booking-${booking.id}`,
-        sortAt: booking.createdAt ? new Date(booking.createdAt).getTime() : 0,
-        kind: "booking" as const,
-        booking,
-      })),
-      ...dedupedPaidOrders.map((order) => ({
-        key: `paid-${order.id}-${order.paidAt}`,
-        sortAt: new Date(order.paidAt).getTime(),
-        kind: "paid" as const,
-        order,
-      })),
-    ].sort((a, b) => b.sortAt - a.sortAt);
-  }, [bookings, paidOrders]);
-
-  const visibleEntries = historyEntries.slice(0, visibleCount);
-  const hasMore = historyEntries.length > visibleCount;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Bronlar tarixi</CardTitle>
-        <CardDescription>Bronlar va to&apos;langan buyurtmalar.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {!historyEntries.length && <p className="text-sm text-text-muted">Hozircha tarix yo&apos;q.</p>}
-        {visibleEntries.map((entry) =>
-          entry.kind === "booking" ? (
-            <SelectableRow key={entry.key} className="flex-wrap gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-text-primary">{entry.booking.deviceName}</p>
-                <p className="tabular-data text-sm text-text-muted">
-                  Bron qilingan: {entry.booking.createdAt ? formatDateTime(entry.booking.createdAt) : "—"}
-                </p>
-                <p className="tabular-data text-xs text-text-faint">
-                  Boshlanish: {entry.booking.startHour} • {entry.booking.durationHours} soat
-                </p>
-                <Badge
-                  variant={
-                    entry.booking.status === "active"
-                      ? "booked"
-                      : entry.booking.status === "cancelled"
-                        ? "busy"
-                        : "available"
-                  }
-                  className="mt-2"
-                >
-                  {BOOKING_STATUS_LABEL[(entry.booking.status || "active") as BookingStatus] ?? entry.booking.status}
-                </Badge>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <p className="tabular-data text-sm font-bold text-brand-cyan">{formatCurrency(entry.booking.price)}</p>
-                {entry.booking.status === "active" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => onCancelBooking(entry.booking.id, entry.booking.deviceId)}
-                  >
-                    Bekor qilish
-                  </Button>
-                ) : null}
-              </div>
-            </SelectableRow>
-          ) : (
-            <PaidOrderRow key={entry.key} order={entry.order} />
-          ),
-        )}
-        {hasMore ? (
-          <Button type="button" variant="secondary" className="w-full" onClick={() => setVisibleCount((count) => count + 4)}>
-            Yana ko&apos;rish
-          </Button>
-        ) : null}
-      </CardContent>
-    </Card>
   );
 }
 

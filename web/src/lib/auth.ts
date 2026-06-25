@@ -1,11 +1,8 @@
-export type UserTier = "Bronze" | "Silver" | "Gold" | "Platinum";
-
 export type UserSession = {
   id: string;
   name: string;
   phone: string;
   email: string;
-  tier: UserTier;
   loyaltyPoints: number;
   role?: "user" | "admin";
   joinedAt: string;

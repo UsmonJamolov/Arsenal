@@ -5,6 +5,7 @@
 @import "./hookah-zone.css";
 @import "./cart-zone.css";
 @import "./payment-zone.css";
+@import "./profile.css";
 @import "./card-checkout.css";
 
 /* ── Arsenal Union — Arena Ops design tokens ── */
@@ -267,11 +268,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 1rem;
-  border: 1px solid oklch(0.78 0.14 195 / 0.35);
-  background: oklch(0.78 0.14 195 / 0.1);
+  width: auto;
+  height: auto;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .auth-tab-single {

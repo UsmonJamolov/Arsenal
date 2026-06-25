@@ -4,7 +4,6 @@ export type AdminSession = {
   phone: string;
   email: string;
   role: "admin";
-  tier: string;
   loyaltyPoints: number;
   joinedAt: string;
 };

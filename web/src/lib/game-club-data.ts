@@ -14,13 +14,34 @@ export type ClubTable = {
   id: string;
   title: string;
   status: TableStatus;
+  seats?: number;
+  zone?: string;
+  image?: string;
 };
+
+export type HookahFlavorBrand = "serbetli" | "liara";
+
+export type HookahFlavorCategoryId = "fruit" | "reshalt" | "cold" | "sweet" | "drink";
+
+export type HookahFlavorFilterId = "all" | HookahFlavorCategoryId;
 
 export type HookahFlavor = {
   id: string;
   title: string;
   price: number;
+  image?: string;
+  brand?: HookahFlavorBrand;
+  category?: HookahFlavorCategoryId;
 };
+
+export const HOOKAH_FLAVOR_CATEGORIES: { id: HookahFlavorFilterId; label: string }[] = [
+  { id: "all", label: "BARCHA" },
+  { id: "fruit", label: "MEVALI" },
+  { id: "reshalt", label: "RESHALT" },
+  { id: "cold", label: "SOVUQ" },
+  { id: "sweet", label: "SHIRIN" },
+  { id: "drink", label: "ICHIMLIK" },
+];
 
 export type HookahFlavorMix = Record<string, number>;
 
@@ -358,10 +379,30 @@ export const TABLES: ClubTable[] = [
 ];
 
 export const HOOKAH_FLAVORS: HookahFlavor[] = [
-  { id: "apple", title: "Olma", price: 75000 },
-  { id: "grape", title: "Uzum", price: 75000 },
-  { id: "mint", title: "Mint", price: 70000 },
-  { id: "mix", title: "Mix", price: 85000 },
+  { id: "cotton-candy", title: "Cotton Candy", price: 75000, brand: "serbetli", category: "sweet", image: "/hookah/flavors/cotton-candy.png" },
+  { id: "blackberry", title: "Blackberry", price: 75000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/blackberry.png" },
+  { id: "fig", title: "Fig", price: 75000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/fig.png" },
+  { id: "american-cake", title: "American Cake", price: 80000, brand: "serbetli", category: "sweet", image: "/hookah/flavors/american-cake.png" },
+  { id: "watermelon", title: "Watermelon", price: 75000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/watermelon.png" },
+  { id: "melon", title: "Melon", price: 75000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/melon.png" },
+  { id: "lime-space-peach", title: "Lime Space Peach", price: 78000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/lime-space-peach.png" },
+  { id: "lemon-marmalade", title: "Lemon Marmalade", price: 75000, brand: "serbetli", category: "sweet", image: "/hookah/flavors/lemon-marmalade.png" },
+  { id: "lemon", title: "Lemon", price: 70000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/lemon.png" },
+  { id: "mango", title: "Mango", price: 75000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/mango.png" },
+  { id: "raspberry-pistachio", title: "Raspberry Pistachio", price: 85000, brand: "serbetli", category: "sweet", image: "/hookah/flavors/raspberry-pistachio.png" },
+  { id: "big-bubble", title: "Big Bubble", price: 75000, brand: "serbetli", category: "sweet", image: "/hookah/flavors/big-bubble.png" },
+  { id: "strawberry", title: "Strawberry", price: 75000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/strawberry.png" },
+  { id: "acai", title: "Acai", price: 80000, brand: "serbetli", category: "fruit", image: "/hookah/flavors/acai.png" },
+  { id: "liara-mix", title: "Mix", price: 80000, brand: "liara", category: "fruit", image: "/hookah/flavors/liara-mix.png" },
+  { id: "liara-amore", title: "Amore", price: 82000, brand: "liara", category: "sweet", image: "/hookah/flavors/liara-amore.png" },
+  { id: "liara-ice-summer", title: "Ice Summer", price: 78000, brand: "liara", category: "cold", image: "/hookah/flavors/liara-ice-summer.png" },
+  { id: "liara-secret", title: "Secret", price: 85000, brand: "liara", category: "reshalt", image: "/hookah/flavors/liara-secret.png" },
+  { id: "liara-jeen", title: "Jeen", price: 80000, brand: "liara", category: "drink", image: "/hookah/flavors/liara-jeen.png" },
+  { id: "liara-61", title: "61", price: 90000, brand: "liara", category: "reshalt", image: "/hookah/flavors/liara-61.png" },
+  { id: "liara-troya", title: "Troya", price: 88000, brand: "liara", category: "reshalt", image: "/hookah/flavors/liara-troya.png" },
+  { id: "liara-alpha", title: "Alpha", price: 88000, brand: "liara", category: "reshalt", image: "/hookah/flavors/liara-alpha.png" },
+  { id: "liara-white-rabbit", title: "White Rabbit", price: 85000, brand: "liara", category: "sweet", image: "/hookah/flavors/liara-white-rabbit.png" },
+  { id: "liara-pacho", title: "Pacho", price: 92000, brand: "liara", category: "reshalt", image: "/hookah/flavors/liara-pacho.png" },
 ];
 
 export const PAYMENT_METHODS = ["Payme", "Click", "Uzum Bank"] as const;
@@ -480,11 +521,10 @@ export function getPsStationMeta(index: number) {
 }
 
 export const HOME_IMAGES = {
-  heroGamer: "/home/hero-gamer.png",
-  welcomePortal: "/home/welcome-portal.png",
-  catDevices: "/home/cat-devices.png",
+  heroGamer: "/home/hero-game-club.png",
+  catDevices: "/home/cat-ps.png",
+  catPc: "/home/cat-pc.png",
   catHookah: "/home/cat-hookah.png",
-  catPc: "/devices/pc-setup-2.png?v=3",
 } as const;
 
 export const HOOKAH_HERO = "/hookah/hero-lounge.png";
@@ -501,31 +541,34 @@ export const HOOKAH_TABLE_META = [
   { seats: 4, zone: "Kafe zonasi" },
 ] as const;
 
-export const HOOKAH_FLAVOR_IMAGES = [
-  "/hookah/apple.png",
-  "/hookah/grape.png",
-  "/hookah/mint.png",
-  "/hookah/mix.png",
-] as const;
+export const HOOKAH_FLAVOR_IMAGES = HOOKAH_FLAVORS.map((flavor) => flavor.image).filter(Boolean) as string[];
 
-const HOOKAH_FLAVOR_IMAGE_BY_KEY: Record<string, string> = {
-  apple: "/hookah/apple.png",
-  olma: "/hookah/apple.png",
-  grape: "/hookah/grape.png",
-  uzum: "/hookah/grape.png",
-  mint: "/hookah/mint.png",
-  mix: "/hookah/mix.png",
-};
+const HOOKAH_FLAVOR_IMAGE_BY_KEY: Record<string, string> = Object.fromEntries(
+  HOOKAH_FLAVORS.filter((flavor) => flavor.image).map((flavor) => [flavor.id, flavor.image as string]),
+);
 
-export function getHookahTableImage(index: number) {
+export function getHookahTableImage(table: ClubTable, index: number) {
+  if (table.image) {
+    return table.image;
+  }
+
   return HOOKAH_TABLE_IMAGES[index % HOOKAH_TABLE_IMAGES.length];
 }
 
-export function getHookahTableMeta(index: number) {
-  return HOOKAH_TABLE_META[index % HOOKAH_TABLE_META.length];
+export function getHookahTableMeta(table: ClubTable, index: number) {
+  const fallback = HOOKAH_TABLE_META[index % HOOKAH_TABLE_META.length];
+
+  return {
+    seats: table.seats ?? fallback.seats,
+    zone: table.zone ?? fallback.zone,
+  };
 }
 
 export function getHookahFlavorImage(flavor: HookahFlavor, index: number) {
+  if (flavor.image) {
+    return flavor.image;
+  }
+
   const id = flavor.id.toLowerCase().trim();
   const title = flavor.title.toLowerCase().trim();
 

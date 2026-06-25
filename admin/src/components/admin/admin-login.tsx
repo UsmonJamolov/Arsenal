@@ -1,8 +1,9 @@
 "use client";
 
-import { Shield } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+import { BrandLogo } from "@/components/brand-logo";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,9 +53,7 @@ export function AdminLogin() {
         className="w-full max-w-md space-y-4 rounded-2xl border border-brand-gold/25 bg-arena-raised/90 p-8 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
-          <div className="flex size-12 items-center justify-center rounded-xl border border-brand-gold/30 bg-brand-gold-dim text-brand-gold">
-            <Shield className="size-6" />
-          </div>
+          <BrandLogo size="md" />
           <div>
             <p className="label-caps text-brand-gold">Arsenal Union</p>
             <h1 className="text-2xl font-bold text-text-primary">Admin Panel</h1>

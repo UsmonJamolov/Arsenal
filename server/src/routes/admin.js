@@ -12,7 +12,7 @@ const Table = require("../models/Table");
 const User = require("../models/User");
 const AppSettings = require("../models/AppSettings");
 const { getSettings, pushNotification } = require("../services/settings");
-const { broadcastUpdate } = require("../realtime");
+const { savePublicImage } = require("../utils/imageUpload");
 
 const router = express.Router();
 
@@ -193,13 +193,12 @@ router.get("/users", async (req, res, next) => {
 
 router.patch("/users/:id", async (req, res, next) => {
   try {
-    const { name, phone, email, tier, loyaltyPoints, role } = req.body ?? {};
+    const { name, phone, email, loyaltyPoints, role } = req.body ?? {};
     const updates = {};
 
     if (name !== undefined) updates.name = String(name).trim();
     if (phone !== undefined) updates.phone = normalizePhone(phone);
     if (email !== undefined) updates.email = String(email).trim().toLowerCase();
-    if (tier !== undefined) updates.tier = tier;
     if (loyaltyPoints !== undefined) updates.loyaltyPoints = Number(loyaltyPoints);
     if (role !== undefined) updates.role = role;
 
@@ -321,7 +320,7 @@ router.get("/tables", async (req, res, next) => {
 
 router.post("/tables", async (req, res, next) => {
   try {
-    const { slug, title, status } = req.body ?? {};
+    const { slug, title, status, seats, zone, image } = req.body ?? {};
 
     if (!title) {
       return res.status(400).json({ message: "title majburiy" });
@@ -331,6 +330,9 @@ router.post("/tables", async (req, res, next) => {
       slug: slug?.trim() || slugify(title),
       title: title.trim(),
       status: status || "available",
+      seats: seats !== undefined ? Number(seats) : 4,
+      zone: zone?.trim() || "Kafe zonasi",
+      image: image ? String(image).trim() : "",
     });
 
     syncClub("tables", `Yangi stol: ${table.title}`);
@@ -345,11 +347,14 @@ router.post("/tables", async (req, res, next) => {
 
 router.patch("/tables/:id", async (req, res, next) => {
   try {
-    const { title, status } = req.body ?? {};
+    const { title, status, seats, zone, image } = req.body ?? {};
     const updates = {};
 
     if (title !== undefined) updates.title = String(title).trim();
     if (status !== undefined) updates.status = status;
+    if (seats !== undefined) updates.seats = Number(seats);
+    if (zone !== undefined) updates.zone = String(zone).trim();
+    if (image !== undefined) updates.image = String(image).trim();
 
     const table = await Table.findOneAndUpdate({ slug: req.params.id }, updates, {
       new: true,
@@ -382,6 +387,53 @@ router.delete("/tables/:id", async (req, res, next) => {
   }
 });
 
+// Media uploads
+router.post("/media/hookah-flavor", async (req, res, next) => {
+  try {
+    const { slug, dataUrl } = req.body ?? {};
+
+    if (!slug || !dataUrl) {
+      return res.status(400).json({ message: "slug va rasm majburiy" });
+    }
+
+    const image = await savePublicImage({
+      folder: "hookah/flavors",
+      fileBaseName: slug,
+      dataUrl,
+    });
+
+    res.json({ image });
+  } catch (error) {
+    if (error.message) {
+      return res.status(400).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+router.post("/media/table-image", async (req, res, next) => {
+  try {
+    const { slug, dataUrl } = req.body ?? {};
+
+    if (!slug || !dataUrl) {
+      return res.status(400).json({ message: "slug va rasm majburiy" });
+    }
+
+    const image = await savePublicImage({
+      folder: "hookah",
+      fileBaseName: slug,
+      dataUrl,
+    });
+
+    res.json({ image });
+  } catch (error) {
+    if (error.message) {
+      return res.status(400).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
 // Hookah
 router.get("/hookah", async (req, res, next) => {
   try {
@@ -394,7 +446,7 @@ router.get("/hookah", async (req, res, next) => {
 
 router.post("/hookah", async (req, res, next) => {
   try {
-    const { slug, title, price } = req.body ?? {};
+    const { slug, title, price, image, brand, category } = req.body ?? {};
 
     if (!title || price === undefined) {
       return res.status(400).json({ message: "title va price majburiy" });
@@ -404,6 +456,9 @@ router.post("/hookah", async (req, res, next) => {
       slug: slug?.trim() || slugify(title),
       title: title.trim(),
       price: Number(price),
+      image: image ? String(image).trim() : "",
+      brand: brand ? String(brand).trim() : "serbetli",
+      category: category ? String(category).trim() : "fruit",
     });
 
     syncClub("hookah", `Yangi kalyan ta'mi: ${flavor.title}`);
@@ -418,11 +473,14 @@ router.post("/hookah", async (req, res, next) => {
 
 router.patch("/hookah/:id", async (req, res, next) => {
   try {
-    const { title, price } = req.body ?? {};
+    const { title, price, image, brand, category } = req.body ?? {};
     const updates = {};
 
     if (title !== undefined) updates.title = String(title).trim();
     if (price !== undefined) updates.price = Number(price);
+    if (image !== undefined) updates.image = String(image).trim();
+    if (brand !== undefined) updates.brand = String(brand).trim();
+    if (category !== undefined) updates.category = String(category).trim();
 
     const flavor = await HookahFlavor.findOneAndUpdate({ slug: req.params.id }, updates, {
       new: true,

@@ -18,12 +18,9 @@ const TABLES = [
   { id: "table-03", title: "Stol 03", status: "available" },
 ];
 
-const HOOKAH_FLAVORS = [
-  { id: "apple", title: "Olma", price: 75000 },
-  { id: "grape", title: "Uzum", price: 75000 },
-  { id: "mint", title: "Mint", price: 70000 },
-  { id: "mix", title: "Mix", price: 85000 },
-];
+const { HOOKAH_FLAVORS: HOOKAH_FLAVOR_SEED } = require("./hookahFlavors");
+
+const HOOKAH_FLAVORS = HOOKAH_FLAVOR_SEED.map(({ slug, ...rest }) => ({ id: slug, ...rest }));
 
 const PAYMENT_METHODS = ["Payme", "Click", "Uzum Bank"];
 

@@ -12,6 +12,7 @@ import {
   Megaphone,
   Monitor,
   RefreshCw,
+  Save,
   Settings,
   Trash2,
   Users,
@@ -20,6 +21,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { BrandLogo } from "@/components/brand-logo";
+import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,11 +59,43 @@ const DEVICE_STATUS_OPTIONS = [
   { value: "booked", label: STATUS_LABEL.booked },
 ] as const;
 
+const DEVICE_ZONE_OPTIONS = [
+  { value: "PS Zona", label: "PS Zona" },
+  { value: "PC Zona", label: "PC Zona" },
+] as const;
+
+const TABLE_ZONE_OPTIONS = [
+  { value: "Kafe zonasi", label: "Kafe zonasi" },
+  { value: "VIP zona", label: "VIP zona" },
+  { value: "Terrasa", label: "Terrasa" },
+] as const;
+
 const TABLE_STATUS_OPTIONS = [
   { value: "available", label: TABLE_STATUS_LABEL.available },
   { value: "busy", label: TABLE_STATUS_LABEL.busy },
   { value: "booked", label: TABLE_STATUS_LABEL.booked },
 ] as const;
+
+const HOOKAH_BRAND_OPTIONS = [
+  { value: "serbetli", label: "Serbetli" },
+  { value: "liara", label: "LIARA" },
+] as const;
+
+const HOOKAH_CATEGORY_OPTIONS = [
+  { value: "fruit", label: "Mevalli" },
+  { value: "reshalt", label: "Reshalt" },
+  { value: "cold", label: "Sovuq" },
+  { value: "sweet", label: "Shirin" },
+  { value: "drink", label: "Ichimlik" },
+] as const;
+
+function slugifyLabel(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 function statusSelectClass(status: string) {
   if (status === "available") {
@@ -121,10 +156,24 @@ type DashboardStats = {
   totalRevenue: number;
 };
 
-type UserRow = { id: string; name: string; phone: string; email: string; tier: string; loyaltyPoints: number; role: string };
+type UserRow = { id: string; name: string; phone: string; email: string; loyaltyPoints: number; role: string };
 type DeviceRow = { id: string; name: string; type: string; pricePerHour: number; status: DeviceStatus };
-type TableRow = { id: string; title: string; status: string };
-type FlavorRow = { id: string; title: string; price: number };
+type TableRow = {
+  id: string;
+  title: string;
+  status: string;
+  seats?: number;
+  zone?: string;
+  image?: string;
+};
+type FlavorRow = {
+  id: string;
+  title: string;
+  price: number;
+  image?: string;
+  brand?: string;
+  category?: string;
+};
 type BookingRow = {
   id: string;
   deviceName: string;
@@ -246,7 +295,10 @@ export function AdminApp() {
   if (!ready || !admin) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-admin-base text-text-primary">
-        <p className="animate-pulse text-sm font-semibold text-brand-gold">Admin yuklanmoqda...</p>
+        <div className="flex flex-col items-center gap-4">
+          <BrandLogo size="lg" />
+          <p className="animate-pulse text-sm font-semibold text-brand-gold">Admin yuklanmoqda...</p>
+        </div>
       </main>
     );
   }
@@ -255,7 +307,10 @@ export function AdminApp() {
     <main className="min-h-screen bg-admin-base text-text-primary">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
         <aside className="flex w-full shrink-0 flex-col border-b border-brand-gold/25 bg-admin-sidebar p-4 lg:hidden">
-          <p className="label-caps text-brand-gold">Admin — {admin.name}</p>
+          <div className="flex items-center gap-2.5">
+            <BrandLogo size="sm" />
+            <p className="label-caps text-brand-gold">Admin — {admin.name}</p>
+          </div>
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {TABS.map((item) => (
               <button
@@ -274,9 +329,14 @@ export function AdminApp() {
         </aside>
 
         <aside className="hidden w-64 shrink-0 flex-col border-r border-brand-gold/25 bg-admin-sidebar p-5 lg:flex">
-          <p className="label-caps text-brand-gold">Admin</p>
-          <h1 className="mt-2 text-xl font-bold text-text-primary">Arsenal Union</h1>
-          <p className="mt-1 truncate text-sm text-text-muted">{admin.name}</p>
+          <div className="flex items-center gap-3">
+            <BrandLogo size="md" />
+            <div className="min-w-0">
+              <p className="label-caps text-brand-gold">Admin</p>
+              <h1 className="mt-1 text-xl font-bold text-text-primary">Arsenal Union</h1>
+            </div>
+          </div>
+          <p className="mt-3 truncate text-sm text-text-muted">{admin.name}</p>
 
           <nav className="mt-8 space-y-1">
             {TABS.map((item) => (
@@ -447,12 +507,11 @@ function UsersPanel({ users, onRefresh }: { users: UserRow[]; onRefresh: () => v
   return (
     <AdminTable
       title="Foydalanuvchilar"
-      headers={["Ism", "Telefon", "Email", "Tier", "Rol", ""]}
+      headers={["Ism", "Telefon", "Email", "Rol", ""]}
       rows={users.map((user) => [
         user.name,
         user.phone,
         user.email,
-        user.tier,
         user.role,
         <Button key={user.id} type="button" size="sm" variant="secondary" onClick={() => deleteUser(user.id)}>
           <Trash2 className="size-3" />
@@ -535,7 +594,18 @@ function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh:
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Input placeholder="slug (ixtiyoriy)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
           <Input placeholder="Nomi" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input placeholder="Turi" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} />
+          <Select
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            className="h-9 font-bold text-white scheme-dark"
+            aria-label="Zona"
+          >
+            {DEVICE_ZONE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                {option.label}
+              </option>
+            ))}
+          </Select>
           <Input placeholder="Narx/soat" value={form.pricePerHour} onChange={(e) => setForm({ ...form, pricePerHour: e.target.value })} />
           <ColoredStatusSelect value={form.status} onChange={(status) => setForm({ ...form, status })} options={DEVICE_STATUS_OPTIONS} />
           <Button type="button" onClick={createDevice} disabled={!zone}>
@@ -598,17 +668,86 @@ function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh:
 }
 
 function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () => void }) {
-  const [title, setTitle] = useState("");
+  const [form, setForm] = useState({
+    slug: "",
+    title: "",
+    status: "available",
+    seats: "4",
+    zone: "Kafe zonasi",
+    image: "/hookah/table-01.png",
+  });
+  const [drafts, setDrafts] = useState<Record<string, TableRow>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDrafts((prev) => {
+      const next = { ...prev };
+      for (const table of tables) {
+        next[table.id] = {
+          id: table.id,
+          title: table.title,
+          status: table.status,
+          seats: table.seats ?? 4,
+          zone: table.zone ?? "Kafe zonasi",
+          image: table.image ?? "",
+        };
+      }
+      return next;
+    });
+  }, [tables]);
 
   const addTable = async () => {
-    await adminRequest("/api/admin/tables", { method: "POST", body: JSON.stringify({ title, status: "available" }) });
-    setTitle("");
+    if (!form.title.trim()) {
+      alert("Stol nomini kiriting");
+      return;
+    }
+
+    await adminRequest("/api/admin/tables", {
+      method: "POST",
+      body: JSON.stringify({
+        slug: form.slug.trim() || undefined,
+        title: form.title.trim(),
+        status: form.status,
+        seats: Number(form.seats) || 4,
+        zone: form.zone.trim() || "Kafe zonasi",
+        image: form.image.trim(),
+      }),
+    });
+
+    setForm({
+      slug: "",
+      title: "",
+      status: "available",
+      seats: "4",
+      zone: "Kafe zonasi",
+      image: "/hookah/table-01.png",
+    });
     onRefresh();
   };
 
-  const updateStatus = async (id: string, status: string) => {
-    await adminRequest(`/api/admin/tables/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
-    onRefresh();
+  const saveTable = async (id: string) => {
+    const draft = drafts[id];
+    if (!draft?.title.trim()) {
+      alert("Stol nomi bo'sh bo'lmasligi kerak");
+      return;
+    }
+
+    setSavingId(id);
+    try {
+      await adminRequest(`/api/admin/tables/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: draft.title.trim(),
+          status: draft.status,
+          seats: Number(draft.seats) || 4,
+          zone: draft.zone?.trim() || "Kafe zonasi",
+          image: draft.image?.trim() ?? "",
+        }),
+      });
+      onRefresh();
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const deleteTable = async (id: string) => {
@@ -617,16 +756,51 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
     onRefresh();
   };
 
+  const patchDraft = (id: string, patch: Partial<TableRow>) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], ...patch },
+    }));
+  };
+
   return (
     <div className="space-y-5">
       <AdminCard>
-        <CardContent className="flex flex-wrap gap-3 pt-6">
-          <Input placeholder="Stol nomi" value={title} onChange={(e) => setTitle(e.target.value)} className="max-w-xs" />
+        <CardHeader>
+          <CardTitle>Yangi stol</CardTitle>
+          <CardDescription>Kalyan zonasiga yangi stol qo&apos;shish</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Input placeholder="Slug (ixtiyoriy)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+          <Input placeholder="Stol nomi *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <Input placeholder="O'rindiqlar soni" value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} />
+          <Select
+            value={form.zone}
+            onChange={(e) => setForm({ ...form, zone: e.target.value })}
+            className="h-9 font-bold text-white scheme-dark"
+            aria-label="Zona"
+          >
+            {TABLE_ZONE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <ImageUploadField
+              value={form.image}
+              fileBaseName={form.slug.trim() || slugifyLabel(form.title)}
+              uploadPath="/api/admin/media/table-image"
+              onChange={(image) => setForm({ ...form, image })}
+            />
+          </div>
+          <ColoredStatusSelect value={form.status} onChange={(status) => setForm({ ...form, status })} options={TABLE_STATUS_OPTIONS} />
           <Button type="button" onClick={addTable}>
             Stol qo&apos;shish
           </Button>
         </CardContent>
       </AdminCard>
+
       <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider">
         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-emerald-300">
           <span className="size-2 rounded-full bg-emerald-400" /> Bo&apos;sh
@@ -638,36 +812,154 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
           <span className="size-2 rounded-full bg-amber-400" /> Bron
         </span>
       </div>
+
       <AdminTable
         title="Stollar"
-        headers={["ID", "Nomi", "Holat", ""]}
-        rows={tables.map((table) => [
-          table.id,
-          table.title,
-          <ColoredStatusSelect
-            key={`${table.id}-status`}
-            value={table.status}
-            onChange={(status) => updateStatus(table.id, status)}
-            options={TABLE_STATUS_OPTIONS}
-          />,
-          <Button key={`${table.id}-d`} type="button" size="sm" variant="secondary" onClick={() => deleteTable(table.id)}>
-            <Trash2 className="size-3" />
-          </Button>,
-        ])}
+        headers={["ID", "Nomi", "O'rindiq", "Zona", "Rasm", "Holat", ""]}
+        rows={tables.map((table) => {
+          const draft = drafts[table.id] ?? table;
+
+          return [
+            table.id,
+            <Input
+              key={`${table.id}-title`}
+              value={draft.title}
+              onChange={(e) => patchDraft(table.id, { title: e.target.value })}
+              className="min-w-[120px]"
+            />,
+            <Input
+              key={`${table.id}-seats`}
+              value={String(draft.seats ?? 4)}
+              onChange={(e) => patchDraft(table.id, { seats: Number(e.target.value) || 4 })}
+              className="max-w-[72px]"
+            />,
+            <Select
+              key={`${table.id}-zone`}
+              value={draft.zone ?? "Kafe zonasi"}
+              onChange={(e) => patchDraft(table.id, { zone: e.target.value })}
+              className="h-9 min-w-[130px] font-bold text-white scheme-dark"
+            >
+              {TABLE_ZONE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                  {option.label}
+                </option>
+              ))}
+            </Select>,
+            <ImageUploadField
+              key={`${table.id}-image`}
+              value={draft.image ?? ""}
+              fileBaseName={table.id}
+              uploadPath="/api/admin/media/table-image"
+              onChange={(image) => patchDraft(table.id, { image })}
+            />,
+            <ColoredStatusSelect
+              key={`${table.id}-status`}
+              value={draft.status}
+              onChange={(status) => patchDraft(table.id, { status })}
+              options={TABLE_STATUS_OPTIONS}
+            />,
+            <div key={`${table.id}-actions`} className="flex gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={savingId === table.id}
+                onClick={() => saveTable(table.id)}
+              >
+                <Save className="size-3" />
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => deleteTable(table.id)}>
+                <Trash2 className="size-3" />
+              </Button>
+            </div>,
+          ];
+        })}
       />
     </div>
   );
 }
 
 function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: () => void }) {
-  const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("75000");
+  const [form, setForm] = useState({
+    slug: "",
+    title: "",
+    price: "75000",
+    brand: "serbetli",
+    category: "fruit",
+    image: "",
+  });
+  const [drafts, setDrafts] = useState<Record<string, FlavorRow>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDrafts((prev) => {
+      const next = { ...prev };
+      for (const flavor of flavors) {
+        next[flavor.id] = {
+          id: flavor.id,
+          title: flavor.title,
+          price: flavor.price,
+          brand: flavor.brand ?? "serbetli",
+          category: flavor.category ?? "fruit",
+          image: flavor.image ?? "",
+        };
+      }
+      return next;
+    });
+  }, [flavors]);
 
   const addFlavor = async () => {
-    await adminRequest("/api/admin/hookah", { method: "POST", body: JSON.stringify({ title, price: Number(price) }) });
-    setTitle("");
-    setPrice("75000");
+    if (!form.title.trim()) {
+      alert("Ta'm nomini kiriting");
+      return;
+    }
+
+    await adminRequest("/api/admin/hookah", {
+      method: "POST",
+      body: JSON.stringify({
+        slug: form.slug.trim() || undefined,
+        title: form.title.trim(),
+        price: Number(form.price) || 0,
+        brand: form.brand,
+        category: form.category,
+        image: form.image.trim(),
+      }),
+    });
+
+    setForm({
+      slug: "",
+      title: "",
+      price: "75000",
+      brand: "serbetli",
+      category: "fruit",
+      image: "",
+    });
     onRefresh();
+  };
+
+  const saveFlavor = async (id: string) => {
+    const draft = drafts[id];
+    if (!draft?.title.trim()) {
+      alert("Ta'm nomi bo'sh bo'lmasligi kerak");
+      return;
+    }
+
+    setSavingId(id);
+    try {
+      await adminRequest(`/api/admin/hookah/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: draft.title.trim(),
+          price: Number(draft.price) || 0,
+          brand: draft.brand ?? "serbetli",
+          category: draft.category ?? "fruit",
+          image: draft.image?.trim() ?? "",
+        }),
+      });
+      onRefresh();
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const deleteFlavor = async (id: string) => {
@@ -676,28 +968,127 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
     onRefresh();
   };
 
+  const patchDraft = (id: string, patch: Partial<FlavorRow>) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], ...patch },
+    }));
+  };
+
   return (
     <div className="space-y-5">
       <AdminCard>
-        <CardContent className="flex flex-wrap gap-3 pt-6">
-          <Input placeholder="Ta'm nomi" value={title} onChange={(e) => setTitle(e.target.value)} className="max-w-xs" />
-          <Input placeholder="Narx" value={price} onChange={(e) => setPrice(e.target.value)} className="max-w-[140px]" />
+        <CardHeader>
+          <CardTitle>Yangi ta&apos;m</CardTitle>
+          <CardDescription>Serbetli yoki LIARA tabak ta&apos;mi qo&apos;shish</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Input placeholder="Slug (ixtiyoriy)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+          <Input placeholder="Ta'm nomi *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <Input placeholder="Narx (UZS)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          <Select
+            value={form.brand}
+            onChange={(e) => setForm({ ...form, brand: e.target.value })}
+            className="h-9 font-bold text-white scheme-dark"
+          >
+            {HOOKAH_BRAND_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            className="h-9 font-bold text-white scheme-dark"
+          >
+            {HOOKAH_CATEGORY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <ImageUploadField
+              value={form.image}
+              fileBaseName={form.slug.trim() || slugifyLabel(form.title)}
+              uploadPath="/api/admin/media/hookah-flavor"
+              onChange={(image) => setForm({ ...form, image })}
+            />
+          </div>
           <Button type="button" onClick={addFlavor}>
             Qo&apos;shish
           </Button>
         </CardContent>
       </AdminCard>
+
       <AdminTable
         title="Kalyan ta'mlari"
-        headers={["ID", "Nomi", "Narx", ""]}
-        rows={flavors.map((flavor) => [
-          flavor.id,
-          flavor.title,
-          formatCurrency(flavor.price),
-          <Button key={flavor.id} type="button" size="sm" variant="secondary" onClick={() => deleteFlavor(flavor.id)}>
-            <Trash2 className="size-3" />
-          </Button>,
-        ])}
+        headers={["ID", "Nomi", "Narx", "Brend", "Kategoriya", "Rasm", ""]}
+        rows={flavors.map((flavor) => {
+          const draft = drafts[flavor.id] ?? flavor;
+
+          return [
+            flavor.id,
+            <Input
+              key={`${flavor.id}-title`}
+              value={draft.title}
+              onChange={(e) => patchDraft(flavor.id, { title: e.target.value })}
+              className="min-w-[120px]"
+            />,
+            <Input
+              key={`${flavor.id}-price`}
+              value={String(draft.price)}
+              onChange={(e) => patchDraft(flavor.id, { price: Number(e.target.value) || 0 })}
+              className="max-w-[100px]"
+            />,
+            <Select
+              key={`${flavor.id}-brand`}
+              value={draft.brand ?? "serbetli"}
+              onChange={(e) => patchDraft(flavor.id, { brand: e.target.value })}
+              className="h-9 min-w-[110px] font-bold text-white scheme-dark"
+            >
+              {HOOKAH_BRAND_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                  {option.label}
+                </option>
+              ))}
+            </Select>,
+            <Select
+              key={`${flavor.id}-category`}
+              value={draft.category ?? "fruit"}
+              onChange={(e) => patchDraft(flavor.id, { category: e.target.value })}
+              className="h-9 min-w-[110px] font-bold text-white scheme-dark"
+            >
+              {HOOKAH_CATEGORY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                  {option.label}
+                </option>
+              ))}
+            </Select>,
+            <ImageUploadField
+              key={`${flavor.id}-image`}
+              value={draft.image ?? ""}
+              fileBaseName={flavor.id}
+              uploadPath="/api/admin/media/hookah-flavor"
+              onChange={(image) => patchDraft(flavor.id, { image })}
+            />,
+            <div key={`${flavor.id}-actions`} className="flex gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={savingId === flavor.id}
+                onClick={() => saveFlavor(flavor.id)}
+              >
+                <Save className="size-3" />
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => deleteFlavor(flavor.id)}>
+                <Trash2 className="size-3" />
+              </Button>
+            </div>,
+          ];
+        })}
       />
     </div>
   );

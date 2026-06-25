@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, ChevronRight, Circle, Clock, Gamepad2, Tv, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,12 @@ import {
   type DeviceStatus,
 } from "@/lib/game-club-data";
 import { formatCurrency } from "@/lib/format";
+import {
+  zoneItemMotion,
+  zonePageMotion,
+  zoneSectionMotion,
+  zoneTap,
+} from "@/lib/zone-motion";
 import { cn } from "@/lib/utils";
 
 const durationOptions = [1, 2, 3, 4];
@@ -25,6 +32,8 @@ type PsZonePanelProps = {
   bookingPrice: number;
   durationHours: number;
   startHour: string;
+  bookingLoading?: boolean;
+  bookingError?: string | null;
   onBack: () => void;
   onToggleDevice: (id: string) => void;
   setDurationHours: (value: number) => void;
@@ -39,12 +48,15 @@ export function PsZonePanel({
   bookingPrice,
   durationHours,
   startHour,
+  bookingLoading = false,
+  bookingError = null,
   onBack,
   onToggleDevice,
   setDurationHours,
   setStartHour,
   onCreateBooking,
 }: PsZonePanelProps) {
+  const reduced = useReducedMotion() ?? false;
   const selectedDevices = devices.filter((device) => selectedDeviceIds.includes(device.id));
   const canBook =
     selectedDevices.length > 0 && selectedDevices.every((device) => device.status === "available");
@@ -58,8 +70,8 @@ export function PsZonePanel({
   }
 
   return (
-    <div className="ps-zone">
-      <header className="ps-zone__header">
+    <motion.div className="ps-zone" {...zonePageMotion(reduced)}>
+      <motion.header className="ps-zone__header" {...zoneSectionMotion(0, reduced)}>
         <Button type="button" variant="ghost" size="sm" className="zone-panel-back mb-3 w-fit px-0" onClick={onBack}>
           <ArrowLeft className="size-4" />
           Orqaga
@@ -68,7 +80,7 @@ export function PsZonePanel({
         <p className="mt-1 text-sm text-[var(--au-muted)]">
           Bir yoki bir nechta PS tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin.
         </p>
-      </header>
+      </motion.header>
 
       <div className="ps-zone__stations">
         {!devices.length ? (
@@ -80,7 +92,7 @@ export function PsZonePanel({
             const image = getPsDeviceImage(index);
 
             return (
-              <button
+              <motion.button
                 key={device.id}
                 type="button"
                 onClick={() => onToggleDevice(device.id)}
@@ -90,6 +102,9 @@ export function PsZonePanel({
                   active && "ps-zone__station--active",
                   device.status !== "available" && "ps-zone__station--dim",
                 )}
+                {...zoneItemMotion(index, 0.08, reduced)}
+                whileTap={reduced ? undefined : zoneTap}
+                layout={!reduced}
               >
                 <img
                   src={image}
@@ -128,21 +143,34 @@ export function PsZonePanel({
                   </div>
                   <PsStatusPill status={device.status} className="mt-3" />
                 </div>
-              </button>
+              </motion.button>
             );
           })
         )}
       </div>
 
-      <section className="ps-zone__booking">
+      <motion.section
+        className="ps-zone__booking"
+        {...zoneSectionMotion(0.16, reduced)}
+        layout={!reduced}
+      >
         {!selectedDevices.length ? (
-          <div className="ps-zone__booking-empty">
+          <motion.div
+            className="ps-zone__booking-empty"
+            initial={reduced ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
             <Gamepad2 className="size-8 text-[var(--au-red)]/60" />
             <p className="mt-3 text-lg font-semibold text-[var(--au-text)]">Qurilma bron qilish</p>
             <p className="mt-1 text-sm text-[var(--au-muted)]">Yuqoridan kamida bitta PS tanlang.</p>
-          </div>
+          </motion.div>
         ) : (
-          <>
+          <motion.div
+            initial={reduced ? false : { opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
             <div>
               <h3 className="text-xl font-bold text-[var(--au-text)]">Qurilma bron qilish</h3>
               <p className="mt-1 text-sm text-[var(--au-muted)]">
@@ -198,15 +226,16 @@ export function PsZonePanel({
               type="button"
               className="ps-zone__submit"
               onClick={onCreateBooking}
-              disabled={!canBook}
+              disabled={!canBook || bookingLoading}
             >
-              Bron qilish
+              {bookingLoading ? "Bron qilinmoqda..." : "Bron qilish"}
               <ChevronRight className="size-5" />
             </button>
-          </>
+            {bookingError ? <p className="mt-2 text-center text-sm font-medium text-[#e9335f]">{bookingError}</p> : null}
+          </motion.div>
         )}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
 

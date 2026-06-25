@@ -1,6 +1,7 @@
 const express = require("express");
 const { pushNotification } = require("../services/settings");
 const { cancelBooking } = require("../services/bookingService");
+const { reconcileCartWithActiveBookings } = require("../services/cartReconcile");
 
 const router = express.Router();
 
@@ -8,13 +9,20 @@ function cartTotal(items) {
   return items.reduce((sum, item) => sum + item.price, 0);
 }
 
-router.get("/", (req, res) => {
-  const { cart, paymentStatus } = req.userCart;
-  res.json({
-    items: cart,
-    total: cartTotal(cart),
-    paymentStatus,
-  });
+router.get("/", async (req, res, next) => {
+  try {
+    const { paymentStatus } = req.userCart;
+    const items = await reconcileCartWithActiveBookings(req.userId, [...req.userCart.cart]);
+    req.userCart.cart = items;
+
+    res.json({
+      items,
+      total: cartTotal(items),
+      paymentStatus,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.delete("/", async (req, res, next) => {

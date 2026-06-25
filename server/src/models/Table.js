@@ -9,6 +9,9 @@ const tableSchema = new mongoose.Schema(
       enum: ["available", "busy", "booked"],
       default: "available",
     },
+    seats: { type: Number, default: 4, min: 1 },
+    zone: { type: String, default: "Kafe zonasi", trim: true },
+    image: { type: String, default: "" },
   },
   { timestamps: true, collection: "tables" },
 );
@@ -18,6 +21,9 @@ tableSchema.methods.toJSON = function toJSON() {
     id: this.slug,
     title: this.title,
     status: this.status,
+    seats: this.seats ?? 4,
+    zone: this.zone || "Kafe zonasi",
+    image: this.image || undefined,
   };
 };
 

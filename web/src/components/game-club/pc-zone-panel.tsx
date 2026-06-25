@@ -1,5 +1,6 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Check, ChevronRight, Circle, Clock, Cpu, Monitor } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,12 @@ import {
   type DeviceStatus,
 } from "@/lib/game-club-data";
 import { formatCurrency } from "@/lib/format";
+import {
+  zoneItemMotion,
+  zonePageMotion,
+  zoneSectionMotion,
+  zoneTap,
+} from "@/lib/zone-motion";
 import { cn } from "@/lib/utils";
 
 const durationOptions = [1, 2, 3, 4];
@@ -25,6 +32,8 @@ type PcZonePanelProps = {
   bookingPrice: number;
   durationHours: number;
   startHour: string;
+  bookingLoading?: boolean;
+  bookingError?: string | null;
   onBack: () => void;
   onToggleDevice: (id: string) => void;
   setDurationHours: (value: number) => void;
@@ -39,12 +48,15 @@ export function PcZonePanel({
   bookingPrice,
   durationHours,
   startHour,
+  bookingLoading = false,
+  bookingError = null,
   onBack,
   onToggleDevice,
   setDurationHours,
   setStartHour,
   onCreateBooking,
 }: PcZonePanelProps) {
+  const reduced = useReducedMotion() ?? false;
   const selectedDevices = devices.filter((device) => selectedDeviceIds.includes(device.id));
   const canBook =
     selectedDevices.length > 0 && selectedDevices.every((device) => device.status === "available");
@@ -58,8 +70,8 @@ export function PcZonePanel({
   }
 
   return (
-    <div className="pc-zone">
-      <header className="pc-zone__header">
+    <motion.div className="pc-zone" {...zonePageMotion(reduced)}>
+      <motion.header className="pc-zone__header" {...zoneSectionMotion(0, reduced)}>
         <Button type="button" variant="ghost" size="sm" className="zone-panel-back mb-3 w-fit px-0" onClick={onBack}>
           <ArrowLeft className="size-4" />
           Orqaga
@@ -68,7 +80,7 @@ export function PcZonePanel({
         <p className="mt-1 text-sm text-[var(--au-muted)]">
           Bir yoki bir nechta PC tanlang, bo&apos;sh bo&apos;lsa bron qilish mumkin.
         </p>
-      </header>
+      </motion.header>
 
       <div className="pc-zone__stations">
         {!devices.length ? (
@@ -80,7 +92,7 @@ export function PcZonePanel({
             const image = getPcDeviceImage(index);
 
             return (
-              <button
+              <motion.button
                 key={device.id}
                 type="button"
                 onClick={() => onToggleDevice(device.id)}
@@ -90,6 +102,9 @@ export function PcZonePanel({
                   active && "pc-zone__station--active",
                   device.status !== "available" && "pc-zone__station--dim",
                 )}
+                {...zoneItemMotion(index, 0.08, reduced)}
+                whileTap={reduced ? undefined : zoneTap}
+                layout={!reduced}
               >
                 <img
                   src={image}
@@ -128,21 +143,34 @@ export function PcZonePanel({
                   </div>
                   <PcStatusPill status={device.status} className="mt-3" />
                 </div>
-              </button>
+              </motion.button>
             );
           })
         )}
       </div>
 
-      <section className="pc-zone__booking">
+      <motion.section
+        className="pc-zone__booking"
+        {...zoneSectionMotion(0.16, reduced)}
+        layout={!reduced}
+      >
         {!selectedDevices.length ? (
-          <div className="pc-zone__booking-empty">
+          <motion.div
+            className="pc-zone__booking-empty"
+            initial={reduced ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
             <Monitor className="size-8 text-[var(--au-red-dark)]/60" />
             <p className="mt-3 text-lg font-semibold text-[var(--au-text)]">Qurilma bron qilish</p>
             <p className="mt-1 text-sm text-[var(--au-muted)]">Yuqoridan kamida bitta PC tanlang.</p>
-          </div>
+          </motion.div>
         ) : (
-          <>
+          <motion.div
+            initial={reduced ? false : { opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
             <div>
               <h3 className="text-xl font-bold text-[var(--au-text)]">Qurilma bron qilish</h3>
               <p className="mt-1 text-sm text-[var(--au-muted)]">
@@ -185,7 +213,9 @@ export function PcZonePanel({
             <div className="pc-zone__total">
               <div>
                 <p className="text-sm text-[var(--au-muted)]">Jami</p>
-                <p className="tabular-data text-2xl font-bold text-[var(--au-red-dark)]">{formatCurrency(bookingPrice)}</p>
+                <p className="tabular-data text-2xl font-bold text-[var(--au-red-dark)]">
+                  {formatCurrency(bookingPrice)}
+                </p>
               </div>
               <div
                 className="pc-zone__total-art"
@@ -198,15 +228,16 @@ export function PcZonePanel({
               type="button"
               className="pc-zone__submit"
               onClick={onCreateBooking}
-              disabled={!canBook}
+              disabled={!canBook || bookingLoading}
             >
-              Bron qilish
+              {bookingLoading ? "Bron qilinmoqda..." : "Bron qilish"}
               <ChevronRight className="size-5" />
             </button>
-          </>
+            {bookingError ? <p className="mt-2 text-center text-sm font-medium text-[#e9335f]">{bookingError}</p> : null}
+          </motion.div>
         )}
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
 

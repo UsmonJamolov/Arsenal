@@ -6,11 +6,6 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, required: true, unique: true, trim: true },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     password: { type: String, required: true, select: false },
-    tier: {
-      type: String,
-      enum: ["Bronze", "Silver", "Gold", "Platinum"],
-      default: "Gold",
-    },
     loyaltyPoints: { type: Number, default: 120 },
     telegramChatId: { type: String, default: "" },
     role: {
@@ -31,7 +26,6 @@ userSchema.methods.toPublicJSON = function toPublicJSON() {
     name: this.name,
     phone: this.phone,
     email: this.email,
-    tier: this.tier,
     loyaltyPoints: this.loyaltyPoints,
     role: this.role,
     joinedAt: this.createdAt.toISOString(),

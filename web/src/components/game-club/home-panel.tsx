@@ -1,12 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  ChevronRight,
-  Gamepad2,
-  ShieldCheck,
-  Wifi,
-} from "lucide-react";
+import { ChevronRight, ShieldCheck, Wifi } from "lucide-react";
+
+import { BrandLogo } from "@/components/brand-logo";
 
 import { getInitials, type UserSession } from "@/lib/auth";
 import { HomeNotifications } from "@/components/game-club/home-notifications";
@@ -19,16 +16,8 @@ import {
   type OrderRecord,
 } from "@/lib/game-club-data";
 import { type LiveStatus } from "@/lib/socket";
+import { fadeUp, zoneEase, zoneHeroDuration } from "@/lib/zone-motion";
 import { cn, touchPress } from "@/lib/utils";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: [0.22, 1, 0.36, 1] as const },
-  }),
-};
 
 type HomePanelProps = {
   devices: Device[];
@@ -71,7 +60,7 @@ export function HomePanel({
         className="home-hero"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: zoneHeroDuration, ease: zoneEase }}
       >
         <div
           className="home-hero__bg"
@@ -79,14 +68,21 @@ export function HomePanel({
           aria-hidden
         />
         <div className="home-hero__glow home-hero__glow--red" aria-hidden />
-        <div className="home-hero__glow home-hero__glow--white" aria-hidden />
         <div className="home-hero__scrim" aria-hidden />
+        <div className="home-hero__symbols" aria-hidden>
+          <span className="home-hero__symbol">△</span>
+          <span className="home-hero__symbol">○</span>
+          <span className="home-hero__symbol">✕</span>
+          <span className="home-hero__symbol">□</span>
+        </div>
 
         <div className="home-hero__inner">
           <header className="home-hero__top">
-            <div className="flex items-center gap-2">
-              <span className="home-top__dot" aria-hidden />
-              <span className="home-top__brand">Arsenal Union</span>
+            <div className="home-brand">
+              <BrandLogo size="sm" className="home-brand__logo" />
+              <span className="home-brand__text">
+                Arsenal <span className="home-brand__accent">Union</span>
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <HomeNotifications bookings={bookings} paidOrders={paidOrders} />
@@ -130,43 +126,21 @@ export function HomePanel({
         </div>
       </motion.section>
 
-      <motion.section
-        className="home-glass-card home-welcome"
-        custom={1}
-        variants={fadeUp}
-        initial="hidden"
-        animate="show"
-      >
-        <div
-          className="home-welcome__bg"
-          style={{ backgroundImage: `url(${HOME_IMAGES.welcomePortal})` }}
-          aria-hidden
-        />
-        <div className="home-welcome__scrim" aria-hidden />
-        <div className="home-welcome__glow" aria-hidden />
-        <div className="home-welcome__portal" aria-hidden />
-        <div className="home-welcome__portal home-welcome__portal--inner" aria-hidden />
-        <div className="home-welcome__content">
-          <p className="home-welcome__eyebrow">O&apos;yinlar olamiga xush kelibsiz</p>
-          <h2 className="home-welcome__title">Game Club</h2>
-          <p className="home-welcome__desc">
-            PS va PC qurilmalarini bron qiling, kalyan buyurtma bering va onlayn to&apos;lang.
-          </p>
-          <button type="button" className={cn("home-cta", touchPress)} onClick={onOpenDevices}>
-            <Gamepad2 className="size-4" strokeWidth={2.25} />
-            Qurilmalarni ko&apos;rish
+      <motion.section custom={1} variants={fadeUp} initial="hidden" animate="show">
+        <div className="home-section-head">
+          <h2 className="home-section-title">Qurilmalar</h2>
+          <button type="button" className="home-section-link" onClick={onOpenDevices}>
+            Barchasini ko&apos;rish
+            <ChevronRight className="size-4" />
           </button>
         </div>
-      </motion.section>
 
-      <motion.section custom={2} variants={fadeUp} initial="hidden" animate="show">
-        <h2 className="home-section-title">Nima mavjud?</h2>
         <div className="home-categories">
           <CategoryCard
             image={HOME_IMAGES.catDevices}
             accent="red"
-            label="Qurilmalar"
-            count={`${psCount || 5} ta`}
+            label="PS Qurilmalar"
+            count={`${psCount || 3} ta`}
             desc="PS5, Aksessuarlar va boshqalar"
             onClick={onOpenDevices}
           />
@@ -174,15 +148,15 @@ export function HomePanel({
             image={HOME_IMAGES.catPc}
             accent="red"
             label="PC Qurilmalar"
-            count={`${pcCount || 15} ta`}
+            count={`${pcCount || 2} ta`}
             desc="Gaming PC, RTX, Monitor va Aksessuarlar"
             onClick={onOpenDevices}
           />
           <CategoryCard
             image={HOME_IMAGES.catHookah}
-            accent="red-dark"
+            accent="purple"
             label="Kalyan Ta'mlari"
-            count={`${hookahCount ? `${hookahCount}+` : "25+"} ta`}
+            count={`${hookahCount ? `${hookahCount}+` : "4+"} ta`}
             desc="Love66, Ice Mint, Blueberry va boshqalar"
             onClick={onOpenHookah}
           />
@@ -191,7 +165,7 @@ export function HomePanel({
 
       <motion.section
         className="home-glass-card home-trust"
-        custom={3}
+        custom={2}
         variants={fadeUp}
         initial="hidden"
         animate="show"
@@ -220,7 +194,7 @@ function CategoryCard({
   onClick,
 }: {
   image: string;
-  accent: "red" | "red-dark";
+  accent: "red" | "purple";
   label: string;
   count: string;
   desc: string;

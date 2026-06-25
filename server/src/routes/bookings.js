@@ -53,15 +53,17 @@ router.post("/", async (req, res, next) => {
     }
 
     const uniqueIds = [...new Set(requestedIds)];
-    const devices = await Promise.all(uniqueIds.map((id) => Device.findOne({ slug: id })));
+    const devices = await Promise.all(
+      uniqueIds.map((id) => {
+        const query = mongoose.Types.ObjectId.isValid(id)
+          ? { $or: [{ slug: id }, { _id: id }] }
+          : { slug: id };
+        return Device.findOne(query);
+      }),
+    );
 
     if (devices.some((device) => !device)) {
       return res.status(404).json({ message: "Qurilma topilmadi" });
-    }
-
-    const unavailable = devices.find((device) => device.status !== "available");
-    if (unavailable) {
-      return res.status(409).json({ message: `${unavailable.name} hozir bo'sh emas` });
     }
 
     const ownerId = userId || req.userId || null;
@@ -72,12 +74,49 @@ router.post("/", async (req, res, next) => {
 
     const customer = await User.findById(ownerId);
 
-    if (!customer || customer.role !== "user") {
-      return res.status(403).json({ message: "Faqat ro'yxatdan o'tgan mijozlar bron qila oladi" });
+    if (!customer) {
+      return res.status(401).json({ message: "Sessiya eskirgan. Qayta kiring." });
+    }
+
+    const customerRole = customer.role || "user";
+    if (customerRole !== "user") {
+      return res.status(403).json({ message: "Faqat mijozlar bron qila oladi" });
     }
 
     const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
     const ownerCart = getUserCartState(ownerId);
+
+    const unavailable = devices.find((device) => device.status !== "available");
+    if (unavailable) {
+      const ownBooking = await Booking.findOne({
+        userId: ownerObjectId,
+        deviceId: unavailable.slug,
+        status: "active",
+      });
+
+      if (ownBooking) {
+        const cartItem = {
+          id: ownBooking._id.toString(),
+          type: "booking",
+          title: `${unavailable.name} bron`,
+          price: ownBooking.price,
+        };
+
+        if (!ownerCart.cart.some((item) => item.id === cartItem.id)) {
+          ownerCart.cart.push(cartItem);
+        }
+
+        return res.status(200).json({
+          booking: ownBooking.toJSON(),
+          cartItem,
+          recovered: true,
+          message: "Bron savatga qo'shildi",
+        });
+      }
+
+      return res.status(409).json({ message: `${unavailable.name} hozir bo'sh emas` });
+    }
+
     const bookings = [];
     const cartItems = [];
 

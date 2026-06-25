@@ -87,7 +87,7 @@ export function CartZonePanel({
                   </div>
 
                   <div className="cart-zone__order-actions">
-                    <p className="cart-zone__order-price">{formatCurrency(item.price)}</p>
+                    <p className="cart-zone__order-price tabular-nums">{formatCurrency(item.price)}</p>
                     <button
                       type="button"
                       className="cart-zone__remove"
@@ -105,7 +105,7 @@ export function CartZonePanel({
           <section className="cart-zone__total" aria-label="Jami summa">
             <div>
               <p className="cart-zone__total-label">Jami to&apos;lov</p>
-              <p className="cart-zone__total-price">{formatCurrency(grandTotal)}</p>
+              <p className="cart-zone__total-price tabular-nums">{formatCurrency(grandTotal)}</p>
             </div>
             <span className="cart-zone__total-badge">{cart.length} ta</span>
           </section>

@@ -6,6 +6,7 @@ const Table = require("../models/Table");
 const HookahFlavor = require("../models/HookahFlavor");
 const AppSettings = require("../models/AppSettings");
 const User = require("../models/User");
+const { HOOKAH_FLAVORS } = require("../data/hookahFlavors");
 
 const DEVICE_BASE = [
   {
@@ -63,16 +64,9 @@ const DEVICE_BASE = [
 ];
 
 const TABLES = [
-  { slug: "table-01", title: "Stol 01", status: "busy" },
-  { slug: "table-02", title: "Stol 02", status: "available" },
-  { slug: "table-03", title: "Stol 03", status: "available" },
-];
-
-const HOOKAH_FLAVORS = [
-  { slug: "apple", title: "Olma", price: 75000 },
-  { slug: "grape", title: "Uzum", price: 75000 },
-  { slug: "mint", title: "Mint", price: 70000 },
-  { slug: "mix", title: "Mix", price: 85000 },
+  { slug: "table-01", title: "Stol 01", status: "busy", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-01.png" },
+  { slug: "table-02", title: "Stol 02", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-02.png" },
+  { slug: "table-03", title: "Stol 03", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-03.png" },
 ];
 
 function normalizePhone(phone) {
@@ -91,7 +85,6 @@ async function ensureAdminUser() {
       email: adminEmail.toLowerCase(),
       password: hashed,
       role: "admin",
-      tier: "Platinum",
       loyaltyPoints: 999,
     },
     { upsert: true, new: true },
@@ -100,19 +93,46 @@ async function ensureAdminUser() {
   console.log(`Admin tayyor: ${phone} / ${adminPassword}`);
 }
 
-async function ensureDeviceStations() {
+async function ensureDevices() {
   for (const device of DEVICE_BASE) {
     await Device.findOneAndUpdate(
       { slug: device.slug },
       {
         $set: {
+          name: device.name,
+          type: device.type,
+          pricePerHour: device.pricePerHour,
           stationId: device.stationId,
           agentHost: device.agentHost ?? null,
           billingProvider: device.billingProvider,
           billingStationId: device.billingStationId,
         },
+        $setOnInsert: {
+          slug: device.slug,
+          status: device.status,
+        },
       },
+      { upsert: true, new: true },
     );
+  }
+}
+
+async function ensureHookahFlavors() {
+  for (const flavor of HOOKAH_FLAVORS) {
+    await HookahFlavor.findOneAndUpdate(
+      { slug: flavor.slug },
+      { $set: flavor },
+      { upsert: true, new: true },
+    );
+  }
+
+  const slugs = HOOKAH_FLAVORS.map((flavor) => flavor.slug);
+  await HookahFlavor.deleteMany({ slug: { $nin: slugs } });
+}
+
+async function ensureTables() {
+  for (const table of TABLES) {
+    await Table.findOneAndUpdate({ slug: table.slug }, { $set: table }, { upsert: true, new: true });
   }
 }
 
@@ -122,13 +142,14 @@ async function seedDatabase() {
   if (deviceCount === 0) {
     await Device.insertMany(DEVICE_BASE);
     await Table.insertMany(TABLES);
-    await HookahFlavor.insertMany(HOOKAH_FLAVORS);
     await AppSettings.create({ key: "main" });
-    console.log("Boshlang'ich ma'lumotlar yuklandi (devices, tables, hookah).");
+    console.log("Boshlang'ich ma'lumotlar yuklandi (devices, tables).");
   } else {
-    await ensureDeviceStations();
+    await ensureDevices();
   }
 
+  await ensureHookahFlavors();
+  await ensureTables();
   await ensureAdminUser();
 }
 

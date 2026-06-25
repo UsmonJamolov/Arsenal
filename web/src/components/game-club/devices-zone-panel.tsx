@@ -1,9 +1,15 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ChevronRight, Gamepad2, Monitor } from "lucide-react";
 
 import { DEVICE_ZONE_IMAGES, type DeviceZone } from "@/lib/game-club-data";
+import {
+  zoneItemMotion,
+  zonePageMotion,
+  zoneSectionMotion,
+  zoneTap,
+} from "@/lib/zone-motion";
 import { cn } from "@/lib/utils";
 
 type DevicesZonePanelProps = {
@@ -14,18 +20,6 @@ type DevicesZonePanelProps = {
   onBack?: () => void;
 };
 
-const pageMotion = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  transition: { duration: 0.4, ease: "easeOut" as const },
-};
-
-const sectionMotion = (delay: number) => ({
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.5, delay, ease: "easeOut" as const },
-});
-
 export function DevicesZonePanel({
   loading,
   psCount,
@@ -33,12 +27,14 @@ export function DevicesZonePanel({
   onSelect,
   onBack,
 }: DevicesZonePanelProps) {
+  const reduced = useReducedMotion() ?? false;
+
   return (
-    <motion.div className="devices-zone" {...pageMotion}>
+    <motion.div className="devices-zone" {...zonePageMotion(reduced)}>
       <div className="devices-zone__glow devices-zone__glow--red" aria-hidden />
       <div className="devices-zone__glow devices-zone__glow--white" aria-hidden />
 
-      <motion.header className="devices-zone__header" {...sectionMotion(0)}>
+      <motion.header className="devices-zone__header" {...zoneSectionMotion(0, reduced)}>
         <button
           type="button"
           className="devices-zone__back"
@@ -82,6 +78,7 @@ export function DevicesZonePanel({
             count={psCount}
             accent="red"
             delay={0.08}
+            reduced={reduced}
             onSelect={() => onSelect("ps")}
           />
           <ZoneCard
@@ -93,6 +90,7 @@ export function DevicesZonePanel({
             count={pcCount}
             accent="red-dark"
             delay={0.14}
+            reduced={reduced}
             onSelect={() => onSelect("pc")}
           />
         </div>
@@ -110,6 +108,7 @@ type ZoneCardProps = {
   count: number;
   accent: "red" | "red-dark";
   delay: number;
+  reduced: boolean;
   onSelect: () => void;
 };
 
@@ -122,6 +121,7 @@ function ZoneCard({
   count,
   accent,
   delay,
+  reduced,
   onSelect,
 }: ZoneCardProps) {
   return (
@@ -129,8 +129,8 @@ function ZoneCard({
       type="button"
       onClick={onSelect}
       className={cn("devices-zone__card", `devices-zone__card--${accent}`)}
-      {...sectionMotion(delay)}
-      whileTap={{ scale: 0.985 }}
+      {...zoneItemMotion(0, delay, reduced)}
+      whileTap={reduced ? undefined : zoneTap}
     >
       <img
         src={image}
