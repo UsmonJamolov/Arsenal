@@ -1,4 +1,4 @@
-/* Devices zone — Arsenal Union (oq + qizil) */
+/* Devices zone — Arsenal Union (qora + qizil, bosh sahifa fonida) */
 .devices-zone {
   --dz-card-h: clamp(12.75rem, 43vw, 15.75rem);
   --dz-gap: clamp(1rem, 3.5vw, 1.375rem);
@@ -9,30 +9,6 @@
   flex-direction: column;
   gap: var(--dz-gap);
   width: 100%;
-}
-
-.devices-zone__glow {
-  position: absolute;
-  border-radius: 999px;
-  pointer-events: none;
-  filter: blur(88px);
-  z-index: 0;
-}
-
-.devices-zone__glow--red {
-  top: -1.5rem;
-  right: -0.5rem;
-  width: 12rem;
-  height: 12rem;
-  background: rgb(200 16 46 / 0.12);
-}
-
-.devices-zone__glow--white {
-  top: 20rem;
-  left: -1.5rem;
-  width: 14rem;
-  height: 14rem;
-  background: rgb(255 255 255 / 0.65);
 }
 
 .devices-zone__header,

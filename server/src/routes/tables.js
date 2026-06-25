@@ -1,10 +1,12 @@
 const express = require("express");
 const Table = require("../models/Table");
+const { syncAllTableStatuses } = require("../services/tableSync");
 
 const router = express.Router();
 
 router.get("/", async (req, res, next) => {
   try {
+    await syncAllTableStatuses({ broadcast: false });
     const tables = await Table.find().sort({ createdAt: 1 });
     res.json(tables.map((t) => t.toJSON()));
   } catch (error) {

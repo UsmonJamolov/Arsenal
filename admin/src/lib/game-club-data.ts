@@ -100,7 +100,7 @@ export const DEVICE_BASE: Device[] = [
 ];
 
 export const TABLES: ClubTable[] = [
-  { id: "table-01", title: "Stol 01", status: "busy" },
+  { id: "table-01", title: "Stol 01", status: "available" },
   { id: "table-02", title: "Stol 02", status: "available" },
   { id: "table-03", title: "Stol 03", status: "available" },
 ];

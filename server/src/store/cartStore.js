@@ -15,10 +15,16 @@ function getUserCartState(userId) {
   return userCarts.get(key);
 }
 
+function forEachUserCart(callback) {
+  for (const state of userCarts.values()) {
+    callback(state);
+  }
+}
+
 function resolveUserId(req) {
   // Body userId is authoritative for writes (booking POST sends it explicitly).
   // Header can be stale if the client session changed without a full reload.
   return req.body?.userId || req.header("X-User-Id") || req.query.userId || null;
 }
 
-module.exports = { getUserCartState, resolveUserId, cartKey };
+module.exports = { getUserCartState, resolveUserId, cartKey, forEachUserCart };

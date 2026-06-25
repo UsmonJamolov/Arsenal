@@ -4,6 +4,8 @@ const config = require("../config");
 const Payment = require("../models/Payment");
 const PaymentIntent = require("../models/PaymentIntent");
 const { getState } = require("../store");
+const { getUserCartState } = require("../store/cartStore");
+const { reconcileCartWithActiveBookings } = require("../services/cartReconcile");
 const { completePaymentIntent } = require("../services/paymentCompletion");
 const {
   createCheckout,
@@ -46,12 +48,28 @@ function buildReturnUrl(intentId, siteOrigin) {
 }
 
 function snapshotCart(cart) {
-  return cart.map((item) => ({
-    id: item.id,
-    type: item.type,
-    title: item.title,
-    price: item.price,
-  }));
+  return cart.map((item) => {
+    const snapshot = {
+      id: item.id,
+      type: item.type,
+      title: item.title,
+      price: item.price,
+    };
+
+    if (item.type === "hookah") {
+      if (Array.isArray(item.tableIds) && item.tableIds.length) {
+        snapshot.tableIds = item.tableIds;
+      }
+      if (item.startHour) {
+        snapshot.startHour = String(item.startHour).trim();
+      }
+      if (item.quantity) {
+        snapshot.quantity = Number(item.quantity) || 1;
+      }
+    }
+
+    return snapshot;
+  });
 }
 
 router.get("/history", async (req, res, next) => {
@@ -127,7 +145,6 @@ async function handleCheckout(req, res, next) {
   try {
     const userId = req.userId || req.body?.userId;
     const { method, phoneNumber } = req.body ?? {};
-    const { cart } = req.userCart;
 
     if (!userId) {
       return res.status(401).json({ message: "To'lov uchun avval tizimga kiring" });
@@ -136,6 +153,10 @@ async function handleCheckout(req, res, next) {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Foydalanuvchi ID noto'g'ri" });
     }
+
+    const userCart = getUserCartState(userId);
+    const cart = await reconcileCartWithActiveBookings(userId, [...userCart.cart]);
+    userCart.cart = cart;
 
     if (!cart.length) {
       return res.status(400).json({ message: "Savat bo'sh: avval mahsulot yoki bron qo'shing" });

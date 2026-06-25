@@ -18,7 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo } from "@/components/brand-logo";
@@ -74,19 +74,6 @@ const TABLE_STATUS_OPTIONS = [
   { value: "available", label: TABLE_STATUS_LABEL.available },
   { value: "busy", label: TABLE_STATUS_LABEL.busy },
   { value: "booked", label: TABLE_STATUS_LABEL.booked },
-] as const;
-
-const HOOKAH_BRAND_OPTIONS = [
-  { value: "serbetli", label: "Serbetli" },
-  { value: "liara", label: "LIARA" },
-] as const;
-
-const HOOKAH_CATEGORY_OPTIONS = [
-  { value: "fruit", label: "Mevalli" },
-  { value: "reshalt", label: "Reshalt" },
-  { value: "cold", label: "Sovuq" },
-  { value: "sweet", label: "Shirin" },
-  { value: "drink", label: "Ichimlik" },
 ] as const;
 
 function slugifyLabel(value: string) {
@@ -174,8 +161,15 @@ type FlavorRow = {
   brand?: string;
   category?: string;
 };
+type HookahBrandRow = {
+  id: string;
+  title: string;
+  isPremium?: boolean;
+  sortOrder?: number;
+};
 type BookingRow = {
   id: string;
+  kind?: "device" | "hookah";
   deviceName: string;
   startHour: string;
   durationHours: number;
@@ -184,9 +178,32 @@ type BookingRow = {
   createdAt: string;
 };
 
+function mergeRowDrafts<T extends { id: string }>(
+  prev: Record<string, T>,
+  rows: T[],
+  toDraft: (row: T) => T,
+): Record<string, T> {
+  const next = { ...prev };
+  const rowIds = new Set(rows.map((row) => row.id));
+
+  for (const row of rows) {
+    if (!next[row.id]) {
+      next[row.id] = toDraft(row);
+    }
+  }
+
+  for (const id of Object.keys(next)) {
+    if (!rowIds.has(id)) {
+      delete next[id];
+    }
+  }
+
+  return next;
+}
+
 type IncomingOrderRow = {
   id: string;
-  type: "booking";
+  type: "booking" | "hookah";
   title: string;
   price: number;
   status: string;
@@ -222,41 +239,106 @@ export function AdminApp() {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [tables, setTables] = useState<TableRow[]>([]);
   const [flavors, setFlavors] = useState<FlavorRow[]>([]);
+  const [hookahBrands, setHookahBrands] = useState<HookahBrandRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [newNotification, setNewNotification] = useState("");
+  const loadSeqRef = useRef(0);
 
   const loadData = useCallback(async (silent = false) => {
+    const seq = ++loadSeqRef.current;
+
     if (!silent) {
       setLoading(true);
     }
     setError("");
 
     try {
-      const [dash, usersRes, devicesRes, tablesRes, hookahRes, bookingsRes, settingsRes] = await Promise.all([
+      const [
+        dashResult,
+        usersResult,
+        devicesResult,
+        tablesResult,
+        hookahResult,
+        brandsResult,
+        bookingsResult,
+        settingsResult,
+      ] = await Promise.allSettled([
         adminRequest<{ stats: DashboardStats; incomingOrders: IncomingOrderRow[] }>("/api/admin/dashboard"),
         adminRequest<{ users: UserRow[] }>("/api/admin/users"),
         adminRequest<{ devices: DeviceRow[] }>("/api/admin/devices"),
         adminRequest<{ tables: TableRow[] }>("/api/admin/tables"),
         adminRequest<{ flavors: FlavorRow[] }>("/api/admin/hookah"),
+        adminRequest<{ brands: HookahBrandRow[] }>("/api/admin/hookah-brands"),
         adminRequest<{ bookings: BookingRow[] }>("/api/admin/bookings"),
         adminRequest<{ paymentMethods: string[]; notifications: string[] }>("/api/admin/settings"),
       ]);
 
-      setStats(dash.stats);
-      setIncomingOrders(dash.incomingOrders ?? []);
-      setUsers(usersRes.users);
-      setDevices(devicesRes.devices);
-      setTables(tablesRes.tables);
-      setFlavors(hookahRes.flavors);
-      setBookings(bookingsRes.bookings);
-      setPaymentMethods(settingsRes.paymentMethods);
-      setNotifications(settingsRes.notifications);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Ma'lumot yuklanmadi");
+      if (seq !== loadSeqRef.current) {
+        return;
+      }
+
+      const failures: string[] = [];
+
+      if (dashResult.status === "fulfilled") {
+        setStats(dashResult.value.stats);
+        setIncomingOrders(dashResult.value.incomingOrders ?? []);
+      } else {
+        failures.push(dashResult.reason instanceof Error ? dashResult.reason.message : "Dashboard");
+      }
+
+      if (usersResult.status === "fulfilled") {
+        setUsers(usersResult.value.users);
+      } else {
+        failures.push(usersResult.reason instanceof Error ? usersResult.reason.message : "Foydalanuvchilar");
+      }
+
+      if (devicesResult.status === "fulfilled") {
+        setDevices(devicesResult.value.devices);
+      } else {
+        failures.push(devicesResult.reason instanceof Error ? devicesResult.reason.message : "Qurilmalar");
+      }
+
+      if (tablesResult.status === "fulfilled") {
+        setTables(tablesResult.value.tables);
+      } else {
+        failures.push(tablesResult.reason instanceof Error ? tablesResult.reason.message : "Stollar");
+      }
+
+      if (hookahResult.status === "fulfilled") {
+        setFlavors(hookahResult.value.flavors);
+      } else {
+        failures.push(hookahResult.reason instanceof Error ? hookahResult.reason.message : "Kalyan");
+      }
+
+      if (brandsResult.status === "fulfilled") {
+        setHookahBrands(brandsResult.value.brands);
+      } else {
+        setHookahBrands([]);
+        failures.push(brandsResult.reason instanceof Error ? brandsResult.reason.message : "Tabaklar");
+      }
+
+      if (bookingsResult.status === "fulfilled") {
+        setBookings(bookingsResult.value.bookings);
+      } else {
+        failures.push(bookingsResult.reason instanceof Error ? bookingsResult.reason.message : "Bronlar");
+      }
+
+      if (settingsResult.status === "fulfilled") {
+        setPaymentMethods(settingsResult.value.paymentMethods);
+        setNotifications(settingsResult.value.notifications);
+      } else {
+        failures.push(settingsResult.reason instanceof Error ? settingsResult.reason.message : "Sozlamalar");
+      }
+
+      if (failures.length) {
+        setError(failures[0]);
+      }
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -278,13 +360,28 @@ export function AdminApp() {
   useEffect(() => {
     if (!ready) return;
 
-    return subscribeClubUpdates((event) => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const unsubscribe = subscribeClubUpdates((event) => {
       if (event.message) {
         const message = event.message;
         setNotifications((prev) => [message, ...prev.slice(0, 9)]);
       }
-      loadData(true);
+
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        void loadData(true);
+      }, 500);
     });
+
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      unsubscribe();
+    };
   }, [ready, loadData]);
 
   const handleLogout = () => {
@@ -294,7 +391,7 @@ export function AdminApp() {
 
   if (!ready || !admin) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-admin-base text-text-primary">
+      <main className="flex h-dvh items-center justify-center bg-admin-base text-text-primary">
         <div className="flex flex-col items-center gap-4">
           <BrandLogo size="lg" />
           <p className="animate-pulse text-sm font-semibold text-brand-gold">Admin yuklanmoqda...</p>
@@ -304,8 +401,8 @@ export function AdminApp() {
   }
 
   return (
-    <main className="min-h-screen bg-admin-base text-text-primary">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
+    <main className="admin-shell bg-admin-base text-text-primary">
+      <div className="mx-auto flex h-full max-w-7xl flex-col overflow-hidden lg:flex-row">
         <aside className="flex w-full shrink-0 flex-col border-b border-brand-gold/25 bg-admin-sidebar p-4 lg:hidden">
           <div className="flex items-center gap-2.5">
             <BrandLogo size="sm" />
@@ -328,7 +425,7 @@ export function AdminApp() {
           </nav>
         </aside>
 
-        <aside className="hidden w-64 shrink-0 flex-col border-r border-brand-gold/25 bg-admin-sidebar p-5 lg:flex">
+        <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-brand-gold/25 bg-admin-sidebar p-5 lg:flex">
           <div className="flex items-center gap-3">
             <BrandLogo size="md" />
             <div className="min-w-0">
@@ -365,20 +462,20 @@ export function AdminApp() {
           </div>
         </aside>
 
-        <section className="flex-1 p-4 sm:p-6">
-          <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6">
+          <header className="mb-6 flex shrink-0 flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.35em] text-amber-300/80">{TABS.find((t) => t.key === tab)?.label}</p>
               <h2 className="text-3xl font-black">Boshqaruv paneli</h2>
             </div>
-            <Button type="button" variant="secondary" onClick={() => loadData()} disabled={loading}>
+            <Button type="button" variant="secondary" onClick={() => void loadData()}>
               <RefreshCw className={cn("size-4", loading && "animate-spin")} />
               Yangilash
             </Button>
           </header>
 
           {error ? (
-            <div className="mb-4 rounded-xl border border-rose-500/50 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
+            <div className="mb-4 shrink-0 rounded-xl border border-rose-500/50 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
               <p className="font-semibold">API ulanmadi</p>
               <p className="mt-1">{error}</p>
               <p className="mt-2 text-xs text-rose-200/80">
@@ -388,9 +485,10 @@ export function AdminApp() {
           ) : null}
 
           {loading ? (
-            <p className="mb-4 text-sm text-amber-200/80">Ma&apos;lumotlar yangilanmoqda...</p>
+            <p className="mb-4 shrink-0 text-sm text-amber-200/80">Ma&apos;lumotlar yangilanmoqda...</p>
           ) : null}
 
+          <div className="admin-panel-scroll">
           {tab === "dashboard" && stats ? (
             <DashboardPanel stats={stats} incomingOrders={incomingOrders} />
           ) : null}
@@ -402,7 +500,24 @@ export function AdminApp() {
           {tab === "users" ? <UsersPanel users={users} onRefresh={loadData} /> : null}
           {tab === "devices" ? <DevicesPanel devices={devices} onRefresh={loadData} /> : null}
           {tab === "tables" ? <TablesPanel tables={tables} onRefresh={loadData} /> : null}
-          {tab === "hookah" ? <HookahPanel flavors={flavors} onRefresh={loadData} /> : null}
+          {tab === "hookah" ? (
+            <HookahPanel
+              flavors={flavors}
+              brands={hookahBrands}
+              onRefresh={loadData}
+              onBrandUpsert={(brand) => {
+                setHookahBrands((prev) => {
+                  const next = prev.filter((item) => item.id !== brand.id);
+                  return [...next, brand].sort(
+                    (left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0) || left.title.localeCompare(right.title),
+                  );
+                });
+              }}
+              onBrandRemove={(brandId) => {
+                setHookahBrands((prev) => prev.filter((item) => item.id !== brandId));
+              }}
+            />
+          ) : null}
           {tab === "bookings" ? <BookingsPanel bookings={bookings} onRefresh={loadData} /> : null}
           {tab === "settings" ? (
             <SettingsPanel
@@ -413,6 +528,7 @@ export function AdminApp() {
               onRefresh={loadData}
             />
           ) : null}
+          </div>
         </section>
       </div>
     </main>
@@ -475,7 +591,15 @@ function DashboardPanel({
               >
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge className="border-cyan-400/40 bg-cyan-500/15 text-cyan-200">Bron</Badge>
+                    <Badge
+                      className={
+                        order.type === "hookah"
+                          ? "border-pink-400/40 bg-pink-500/15 text-pink-200"
+                          : "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
+                      }
+                    >
+                      {order.type === "hookah" ? "Kalyan" : "Bron"}
+                    </Badge>
                     <Badge className="border-amber-400/40 bg-amber-500/15 text-amber-200">Faol</Badge>
                   </div>
                   <p className="font-semibold text-text-primary">{order.title}</p>
@@ -483,8 +607,11 @@ function DashboardPanel({
                     {order.customerName} · {order.customerPhone}
                   </p>
                   <p className="mt-1 text-xs text-text-faint">
-                    Boshlanish: {order.startHour} · {order.durationHours} soat · Qabul qilindi:{" "}
-                    {formatDateTime(order.createdAt)}
+                    Boshlanish: {order.startHour}
+                    {order.type === "hookah"
+                      ? ` · ${order.durationHours} kalyan`
+                      : ` · ${order.durationHours} soat`}{" "}
+                    · Qabul qilindi: {formatDateTime(order.createdAt)}
                   </p>
                 </div>
                 <p className="shrink-0 text-lg font-bold tabular-nums text-brand-gold">{formatCurrency(order.price)}</p>
@@ -680,20 +807,16 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setDrafts((prev) => {
-      const next = { ...prev };
-      for (const table of tables) {
-        next[table.id] = {
-          id: table.id,
-          title: table.title,
-          status: table.status,
-          seats: table.seats ?? 4,
-          zone: table.zone ?? "Kafe zonasi",
-          image: table.image ?? "",
-        };
-      }
-      return next;
-    });
+    setDrafts((prev) =>
+      mergeRowDrafts(prev, tables, (table) => ({
+        id: table.id,
+        title: table.title,
+        status: table.status,
+        seats: table.seats ?? 4,
+        zone: table.zone ?? "Kafe zonasi",
+        image: table.image ?? "",
+      })),
+    );
   }, [tables]);
 
   const addTable = async () => {
@@ -734,7 +857,7 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
 
     setSavingId(id);
     try {
-      await adminRequest(`/api/admin/tables/${id}`, {
+      const { table } = await adminRequest<{ table: TableRow }>(`/api/admin/tables/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
           title: draft.title.trim(),
@@ -744,6 +867,17 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
           image: draft.image?.trim() ?? "",
         }),
       });
+      setDrafts((prev) => ({
+        ...prev,
+        [id]: {
+          id: table.id,
+          title: table.title,
+          status: table.status,
+          seats: table.seats ?? 4,
+          zone: table.zone ?? "Kafe zonasi",
+          image: table.image ?? "",
+        },
+      }));
       onRefresh();
     } finally {
       setSavingId(null);
@@ -757,10 +891,17 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
   };
 
   const patchDraft = (id: string, patch: Partial<TableRow>) => {
-    setDrafts((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], ...patch },
-    }));
+    setDrafts((prev) => {
+      const base = prev[id] ?? tables.find((table) => table.id === id);
+      if (!base) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [id]: { ...base, ...patch },
+      };
+    });
   };
 
   return (
@@ -879,33 +1020,239 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
   );
 }
 
-function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: () => void }) {
+function HookahBrandsPanel({
+  brands,
+  onRefresh,
+  onBrandUpsert,
+  onBrandRemove,
+}: {
+  brands: HookahBrandRow[];
+  onRefresh: () => void;
+  onBrandUpsert: (brand: HookahBrandRow) => void;
+  onBrandRemove: (brandId: string) => void;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, HookahBrandRow>>({});
+  const [newTitle, setNewTitle] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDrafts((prev) =>
+      mergeRowDrafts(prev, brands, (brand) => ({
+        id: brand.id,
+        title: brand.title,
+        isPremium: brand.isPremium ?? false,
+        sortOrder: brand.sortOrder ?? 0,
+      })),
+    );
+  }, [brands]);
+
+  const defaultBrandId = brands[0]?.id ?? "serbetli";
+
+  const addBrand = async () => {
+    if (!newTitle.trim()) {
+      alert("Tabak nomini kiriting");
+      return;
+    }
+
+    const { brand } = await adminRequest<{ brand: HookahBrandRow }>("/api/admin/hookah-brands", {
+      method: "POST",
+      body: JSON.stringify({ title: newTitle.trim() }),
+    });
+    onBrandUpsert(brand);
+    setNewTitle("");
+    onRefresh();
+  };
+
+  const saveBrand = async (id: string) => {
+    const draft = drafts[id];
+    if (!draft?.title.trim()) {
+      alert("Tabak nomi bo'sh bo'lmasligi kerak");
+      return;
+    }
+
+    setSavingId(id);
+    try {
+      const { brand } = await adminRequest<{ brand: HookahBrandRow }>(`/api/admin/hookah-brands/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: draft.title.trim(),
+          isPremium: Boolean(draft.isPremium),
+        }),
+      });
+      setDrafts((prev) => ({
+        ...prev,
+        [id]: {
+          id: brand.id,
+          title: brand.title,
+          isPremium: brand.isPremium ?? false,
+          sortOrder: brand.sortOrder ?? 0,
+        },
+      }));
+      onBrandUpsert(brand);
+      onRefresh();
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const deleteBrand = async (id: string) => {
+    if (!confirm("Tabakni o'chirasizmi?")) return;
+
+    try {
+      await adminRequest(`/api/admin/hookah-brands/${id}`, { method: "DELETE" });
+      onBrandRemove(id);
+      onRefresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Tabakni o'chirib bo'lmadi");
+    }
+  };
+
+  const patchDraft = (id: string, patch: Partial<HookahBrandRow>) => {
+    setDrafts((prev) => {
+      const base = prev[id] ?? brands.find((brand) => brand.id === id);
+      if (!base) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [id]: { ...base, ...patch },
+      };
+    });
+  };
+
+  return (
+    <AdminCard>
+      <CardHeader>
+        <CardTitle>Tabaklar</CardTitle>
+        <CardDescription>Serbetli, LIARA va boshqa tabak nomlarini boshqarish</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[220px] flex-1">
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-violet-200/60">
+              Yangi tabak
+            </label>
+            <Input
+              placeholder="Masalan: Darkside"
+              value={newTitle}
+              onChange={(event) => setNewTitle(event.target.value)}
+            />
+          </div>
+          <Button type="button" onClick={addBrand}>
+            Qo&apos;shish
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-violet-500/25 text-violet-200/60">
+                {["Slug", "Nomi", "Premium", ""].map((header) => (
+                  <th key={header} className="px-3 py-2 font-semibold">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {brands.map((brand) => {
+                const draft = drafts[brand.id] ?? brand;
+
+                return (
+                  <tr key={brand.id} className="border-b border-violet-500/10">
+                    <td className="px-3 py-3 font-mono text-xs text-violet-100/70">{brand.id}</td>
+                    <td className="px-3 py-3">
+                      <Input
+                        value={draft.title}
+                        onChange={(event) => patchDraft(brand.id, { title: event.target.value })}
+                        className="min-w-[160px]"
+                      />
+                    </td>
+                    <td className="px-3 py-3">
+                      <label className="inline-flex items-center gap-2 text-sm text-violet-100/80">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(draft.isPremium)}
+                          onChange={(event) => patchDraft(brand.id, { isPremium: event.target.checked })}
+                          className="size-4 rounded border-violet-400/40 bg-[#181425]"
+                        />
+                        Premium
+                      </label>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={savingId === brand.id}
+                          onClick={() => saveBrand(brand.id)}
+                        >
+                          <Save className="size-3" />
+                        </Button>
+                        <Button type="button" size="sm" variant="secondary" onClick={() => deleteBrand(brand.id)}>
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {!brands.length ? (
+          <p className="text-sm text-violet-100/60">Tabaklar yuklanmoqda yoki hali qo&apos;shilmagan.</p>
+        ) : null}
+        <p className="text-[11px] text-violet-200/50">
+          O&apos;chirish uchun tabakda ta&apos;m bo&apos;lmasligi kerak. Standart tabak: {defaultBrandId}
+        </p>
+      </CardContent>
+    </AdminCard>
+  );
+}
+
+function HookahPanel({
+  flavors,
+  brands,
+  onRefresh,
+  onBrandUpsert,
+  onBrandRemove,
+}: {
+  flavors: FlavorRow[];
+  brands: HookahBrandRow[];
+  onRefresh: () => void;
+  onBrandUpsert: (brand: HookahBrandRow) => void;
+  onBrandRemove: (brandId: string) => void;
+}) {
+  const defaultBrandId = brands[0]?.id ?? "serbetli";
   const [form, setForm] = useState({
     slug: "",
     title: "",
     price: "75000",
-    brand: "serbetli",
-    category: "fruit",
+    brand: defaultBrandId,
     image: "",
   });
   const [drafts, setDrafts] = useState<Record<string, FlavorRow>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setDrafts((prev) => {
-      const next = { ...prev };
-      for (const flavor of flavors) {
-        next[flavor.id] = {
-          id: flavor.id,
-          title: flavor.title,
-          price: flavor.price,
-          brand: flavor.brand ?? "serbetli",
-          category: flavor.category ?? "fruit",
-          image: flavor.image ?? "",
-        };
-      }
-      return next;
-    });
+    if (!brands.some((brand) => brand.id === form.brand)) {
+      setForm((prev) => ({ ...prev, brand: defaultBrandId }));
+    }
+  }, [brands, defaultBrandId, form.brand]);
+
+  useEffect(() => {
+    setDrafts((prev) =>
+      mergeRowDrafts(prev, flavors, (flavor) => ({
+        id: flavor.id,
+        title: flavor.title,
+        price: flavor.price,
+        brand: flavor.brand ?? defaultBrandId,
+        image: flavor.image ?? "",
+      })),
+    );
   }, [flavors]);
 
   const addFlavor = async () => {
@@ -921,7 +1268,6 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
         title: form.title.trim(),
         price: Number(form.price) || 0,
         brand: form.brand,
-        category: form.category,
         image: form.image.trim(),
       }),
     });
@@ -930,8 +1276,7 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
       slug: "",
       title: "",
       price: "75000",
-      brand: "serbetli",
-      category: "fruit",
+      brand: defaultBrandId,
       image: "",
     });
     onRefresh();
@@ -946,16 +1291,25 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
 
     setSavingId(id);
     try {
-      await adminRequest(`/api/admin/hookah/${id}`, {
+      const { flavor } = await adminRequest<{ flavor: FlavorRow }>(`/api/admin/hookah/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
           title: draft.title.trim(),
           price: Number(draft.price) || 0,
-          brand: draft.brand ?? "serbetli",
-          category: draft.category ?? "fruit",
+          brand: draft.brand ?? defaultBrandId,
           image: draft.image?.trim() ?? "",
         }),
       });
+      setDrafts((prev) => ({
+        ...prev,
+        [id]: {
+          id: flavor.id,
+          title: flavor.title,
+          price: flavor.price,
+          brand: flavor.brand ?? defaultBrandId,
+          image: flavor.image ?? "",
+        },
+      }));
       onRefresh();
     } finally {
       setSavingId(null);
@@ -969,18 +1323,32 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
   };
 
   const patchDraft = (id: string, patch: Partial<FlavorRow>) => {
-    setDrafts((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], ...patch },
-    }));
+    setDrafts((prev) => {
+      const base = prev[id] ?? flavors.find((flavor) => flavor.id === id);
+      if (!base) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [id]: { ...base, ...patch },
+      };
+    });
   };
 
   return (
     <div className="space-y-5">
+      <HookahBrandsPanel
+        brands={brands}
+        onRefresh={onRefresh}
+        onBrandUpsert={onBrandUpsert}
+        onBrandRemove={onBrandRemove}
+      />
+
       <AdminCard>
         <CardHeader>
           <CardTitle>Yangi ta&apos;m</CardTitle>
-          <CardDescription>Serbetli yoki LIARA tabak ta&apos;mi qo&apos;shish</CardDescription>
+          <CardDescription>Tabak tanlab yangi ta&apos;m qo&apos;shish</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Input placeholder="Slug (ixtiyoriy)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
@@ -991,20 +1359,9 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
             onChange={(e) => setForm({ ...form, brand: e.target.value })}
             className="h-9 font-bold text-white scheme-dark"
           >
-            {HOOKAH_BRAND_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value} className="bg-[#181425] text-white">
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="h-9 font-bold text-white scheme-dark"
-          >
-            {HOOKAH_CATEGORY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value} className="bg-[#181425] text-white">
-                {option.label}
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id} className="bg-[#181425] text-white">
+                {brand.title}
               </option>
             ))}
           </Select>
@@ -1024,7 +1381,7 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
 
       <AdminTable
         title="Kalyan ta'mlari"
-        headers={["ID", "Nomi", "Narx", "Brend", "Kategoriya", "Rasm", ""]}
+        headers={["ID", "Nomi", "Narx", "Brend", "Rasm", ""]}
         rows={flavors.map((flavor) => {
           const draft = drafts[flavor.id] ?? flavor;
 
@@ -1044,25 +1401,13 @@ function HookahPanel({ flavors, onRefresh }: { flavors: FlavorRow[]; onRefresh: 
             />,
             <Select
               key={`${flavor.id}-brand`}
-              value={draft.brand ?? "serbetli"}
+              value={draft.brand ?? defaultBrandId}
               onChange={(e) => patchDraft(flavor.id, { brand: e.target.value })}
               className="h-9 min-w-[110px] font-bold text-white scheme-dark"
             >
-              {HOOKAH_BRAND_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value} className="bg-[#181425] text-white">
-                  {option.label}
-                </option>
-              ))}
-            </Select>,
-            <Select
-              key={`${flavor.id}-category`}
-              value={draft.category ?? "fruit"}
-              onChange={(e) => patchDraft(flavor.id, { category: e.target.value })}
-              className="h-9 min-w-[110px] font-bold text-white scheme-dark"
-            >
-              {HOOKAH_CATEGORY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value} className="bg-[#181425] text-white">
-                  {option.label}
+              {brands.map((brand) => (
+                <option key={brand.id} value={brand.id} className="bg-[#181425] text-white">
+                  {brand.title}
                 </option>
               ))}
             </Select>,
@@ -1107,25 +1452,29 @@ function BookingsPanel({ bookings, onRefresh }: { bookings: BookingRow[]; onRefr
   };
 
   return (
-    <AdminTable
-      title="Bronlar"
-      headers={["Qurilma", "Vaqt", "Soat", "Narx", "Holat", "Sana", ""]}
-      rows={bookings.map((booking) => [
-        booking.deviceName,
-        booking.startHour,
-        `${booking.durationHours} soat`,
-        formatCurrency(booking.price),
-        <Select key={`${booking.id}-s`} value={booking.status} onChange={(e) => updateStatus(booking.id, e.target.value)} className="h-9">
-          <option value="active">Faol</option>
-          <option value="completed">Yakunlangan</option>
-          <option value="cancelled">Bekor</option>
-        </Select>,
-        new Date(booking.createdAt).toLocaleString("uz-UZ"),
-        <Button key={booking.id} type="button" size="sm" variant="secondary" onClick={() => deleteBooking(booking.id)}>
-          <Trash2 className="size-3" />
-        </Button>,
-      ])}
-    />
+    <div className="admin-table-panel">
+      <AdminTable
+        scrollable
+        title="Bronlar"
+        headers={["Turi", "Buyurtma", "Vaqt", "Miqdor", "Narx", "Holat", "Sana", ""]}
+        rows={bookings.map((booking) => [
+          booking.kind === "hookah" ? "Kalyan" : "Qurilma",
+          booking.deviceName,
+          booking.startHour,
+          booking.kind === "hookah" ? `${booking.durationHours} kalyan` : `${booking.durationHours} soat`,
+          formatCurrency(booking.price),
+          <Select key={`${booking.id}-s`} value={booking.status} onChange={(e) => updateStatus(booking.id, e.target.value)} className="h-9">
+            <option value="active">Faol</option>
+            <option value="completed">Yakunlangan</option>
+            <option value="cancelled">Bekor</option>
+          </Select>,
+          new Date(booking.createdAt).toLocaleString("uz-UZ"),
+          <Button key={booking.id} type="button" size="sm" variant="secondary" onClick={() => deleteBooking(booking.id)}>
+            <Trash2 className="size-3" />
+          </Button>,
+        ])}
+      />
+    </div>
   );
 }
 
@@ -1217,17 +1566,27 @@ function AdminTable({
   title,
   headers,
   rows,
+  scrollable = false,
 }: {
   title: string;
   headers: string[];
   rows: React.ReactNode[][];
+  scrollable?: boolean;
 }) {
   return (
-    <AdminCard>
-      <CardHeader>
+    <AdminCard
+      className={cn(
+        scrollable && "admin-table-card !p-0",
+      )}
+    >
+      <CardHeader className={cn(scrollable && "shrink-0 px-5 pt-5")}>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent
+        className={cn(
+          scrollable ? "admin-table-scroll !mt-0 min-h-0 flex-1 space-y-0 px-5 pb-5" : "overflow-x-auto",
+        )}
+      >
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
             <tr className="border-b border-violet-500/25 text-violet-200/60">

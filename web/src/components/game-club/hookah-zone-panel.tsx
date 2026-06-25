@@ -10,7 +10,6 @@ import {
   Clock,
   Minus,
   Plus,
-  ShoppingCart,
   Users,
 } from "lucide-react";
 
@@ -24,11 +23,13 @@ import {
   getHookahTableImage,
   getHookahTableMeta,
   getHookahUnitPrice,
+  groupFlavorsByBrand,
   HOOKAH_HERO,
   HOOKAH_FLAVOR_PERCENT_STEP,
   HOOKAH_MIN_FLAVOR_PERCENT,
   TABLE_STATUS_LABEL,
   type ClubTable,
+  type HookahBrand,
   type HookahFlavor,
   type HookahFlavorMix,
   type TableStatus,
@@ -38,6 +39,7 @@ import {
   zoneDockMotion,
   zoneHeroMotion,
   zoneItemMotion,
+  zoneFlavorItemMotion,
   zonePageMotion,
   zoneSectionMotion,
   zoneTap,
@@ -46,14 +48,13 @@ import { cn } from "@/lib/utils";
 
 type HookahZonePanelProps = {
   flavors: HookahFlavor[];
+  brands: HookahBrand[];
   tables: ClubTable[];
   loading: boolean;
   selectedFlavorIds: string[];
   selectedTableIds: string[];
   startHour: string;
-  cartCount?: number;
   onBack?: () => void;
-  onOpenCart?: () => void;
   onToggleFlavor: (id: string) => void;
   onToggleTable: (id: string) => void;
   setStartHour: (value: string) => void;
@@ -75,19 +76,54 @@ function normalizeHookahTime(value: string) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-function isLiaraFlavor(flavor: HookahFlavor) {
-  return flavor.brand === "liara" || flavor.id.startsWith("liara-");
+function FlavorBrandSection({
+  title,
+  flavors,
+  selectedFlavorIds,
+  reduced,
+  onToggleFlavor,
+}: {
+  title: string;
+  flavors: HookahFlavor[];
+  selectedFlavorIds: string[];
+  reduced: boolean;
+  onToggleFlavor: (id: string) => void;
+}) {
+  return (
+    <div className="hookah-zone__flavor-row">
+      <h3 className="hookah-zone__flavor-row-title">{title}</h3>
+      {flavors.length ? (
+        <div className="hookah-zone__flavors-track hookah-zone__flavors-track--grid-2">
+          {flavors.map((flavor, index) => (
+            <FlavorCard
+              key={flavor.id}
+              flavor={flavor}
+              index={index}
+              rowIndex={0}
+              active={selectedFlavorIds.includes(flavor.id)}
+              reduced={reduced}
+              onToggleFlavor={onToggleFlavor}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="hookah-zone__flavor-row-empty">Hozircha ta&apos;m yo&apos;q</p>
+      )}
+    </div>
+  );
 }
 
 function FlavorCard({
   flavor,
   index,
+  rowIndex,
   active,
   reduced,
   onToggleFlavor,
 }: {
   flavor: HookahFlavor;
   index: number;
+  rowIndex: number;
   active: boolean;
   reduced: boolean;
   onToggleFlavor: (id: string) => void;
@@ -100,34 +136,35 @@ function FlavorCard({
       onClick={() => onToggleFlavor(flavor.id)}
       aria-pressed={active}
       className={cn("hookah-zone__flavor-card", active && "hookah-zone__flavor-card--active")}
-      {...zoneItemMotion(index, 0, reduced)}
+      {...zoneFlavorItemMotion(index, rowIndex, reduced)}
       whileTap={reduced ? undefined : zoneTap}
     >
       <div className="hookah-zone__flavor-media">
         <img src={image} alt="" className="hookah-zone__flavor-art" loading="lazy" draggable={false} />
-        {active ? (
-          <span className="hookah-zone__flavor-selected" aria-hidden>
-            <Check className="size-3.5" strokeWidth={3} />
-          </span>
-        ) : null}
       </div>
-      <p className="hookah-zone__flavor-name">{flavor.title}</p>
-      <p className="hookah-zone__flavor-price">{formatCurrency(flavor.price)}</p>
+      <div className="hookah-zone__flavor-body">
+        <div className="hookah-zone__flavor-copy">
+          <p className="hookah-zone__flavor-name">{flavor.title}</p>
+        </div>
+        <p className="hookah-zone__flavor-price">{formatCurrency(flavor.price)}</p>
+      </div>
+      <span className={cn("hookah-zone__flavor-check", active && "hookah-zone__flavor-check--active")} aria-hidden>
+        {active ? <Check className="size-3.5" strokeWidth={3} /> : null}
+      </span>
     </motion.button>
   );
 }
 
 export function HookahZonePanel({
   flavors,
+  brands,
   tables,
   loading,
   onAddHookah,
   selectedFlavorIds,
   selectedTableIds,
   startHour,
-  cartCount = 0,
   onBack,
-  onOpenCart,
   onToggleFlavor,
   onToggleTable,
   setStartHour,
@@ -137,8 +174,7 @@ export function HookahZonePanel({
   onMixPercentChange,
 }: HookahZonePanelProps) {
   const reduced = useReducedMotion() ?? false;
-  const serbetliFlavors = useMemo(() => flavors.filter((flavor) => !isLiaraFlavor(flavor)), [flavors]);
-  const liaraFlavors = useMemo(() => flavors.filter((flavor) => isLiaraFlavor(flavor)), [flavors]);
+  const brandSections = useMemo(() => groupFlavorsByBrand(brands, flavors), [brands, flavors]);
 
   const unitPrice = getHookahUnitPrice(flavors, selectedFlavorIds);
   const totalPrice = getHookahOrderTotal(flavors, selectedFlavorIds, hookahQuantity);
@@ -175,17 +211,9 @@ export function HookahZonePanel({
                 ) : (
                   <span />
                 )}
-                <button
-                  type="button"
-                  className="hookah-zone__icon-btn hookah-zone__cart"
-                  onClick={onOpenCart}
-                  aria-label="Savatcha"
-                >
-                  <ShoppingCart className="size-5" strokeWidth={2} />
-                  {cartCount > 0 ? (
-                    <span className="hookah-zone__cart-badge">{cartCount > 9 ? "9+" : cartCount}</span>
-                  ) : null}
-                </button>
+                <span className="hookah-zone__icon-btn hookah-zone__icon-btn--static" aria-hidden>
+                  <HookahIcon className="size-5" strokeWidth={1.75} />
+                </span>
               </div>
 
               <div className="hookah-zone__hero-bottom">
@@ -236,6 +264,7 @@ export function HookahZonePanel({
           <div className="hookah-zone__tables-track">
             {tables.map((table, index) => {
               const active = selectedTableIds.includes(table.id);
+              const selectable = table.status === "available";
               const meta = getHookahTableMeta(table, index);
               const image = getHookahTableImage(table, index);
 
@@ -243,15 +272,21 @@ export function HookahZonePanel({
                 <motion.button
                   key={table.id}
                   type="button"
-                  onClick={() => onToggleTable(table.id)}
+                  disabled={!selectable}
+                  onClick={() => {
+                    if (selectable) {
+                      onToggleTable(table.id);
+                    }
+                  }}
                   aria-pressed={active}
+                  aria-disabled={!selectable}
                   className={cn(
                     "hookah-zone__table-card",
                     active && "hookah-zone__table-card--active",
-                    table.status !== "available" && "hookah-zone__table-card--dim",
+                    !selectable && "hookah-zone__table-card--disabled",
                   )}
                   {...zoneItemMotion(index, 0.08, reduced)}
-                  whileTap={reduced ? undefined : zoneTap}
+                  whileTap={reduced || !selectable ? undefined : zoneTap}
                 >
                   <div className="hookah-zone__table-media">
                     <img
@@ -289,36 +324,16 @@ export function HookahZonePanel({
           <h2 className="hookah-zone__section-title">Tabak ta&apos;mlari</h2>
           <p className="hookah-zone__section-hint">Bir nechta ta&apos;mni tanlab aralashtirishingiz mumkin</p>
           <div className="hookah-zone__flavor-rows">
-            <div className="hookah-zone__flavor-row">
-              <h3 className="hookah-zone__flavor-row-title">Serbetli</h3>
-              <div className="hookah-zone__flavors-track">
-                {serbetliFlavors.map((flavor, index) => (
-                  <FlavorCard
-                    key={flavor.id}
-                    flavor={flavor}
-                    index={index}
-                    active={selectedFlavorIds.includes(flavor.id)}
-                    reduced={reduced}
-                    onToggleFlavor={onToggleFlavor}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="hookah-zone__flavor-row">
-              <h3 className="hookah-zone__flavor-row-title">LIARA</h3>
-              <div className="hookah-zone__flavors-track">
-                {liaraFlavors.map((flavor, index) => (
-                  <FlavorCard
-                    key={flavor.id}
-                    flavor={flavor}
-                    index={index}
-                    active={selectedFlavorIds.includes(flavor.id)}
-                    reduced={reduced}
-                    onToggleFlavor={onToggleFlavor}
-                  />
-                ))}
-              </div>
-            </div>
+            {brandSections.map((section) => (
+              <FlavorBrandSection
+                key={section.brand.id}
+                title={section.brand.title}
+                flavors={section.flavors}
+                selectedFlavorIds={selectedFlavorIds}
+                reduced={reduced}
+                onToggleFlavor={onToggleFlavor}
+              />
+            ))}
           </div>
         </motion.section>
 

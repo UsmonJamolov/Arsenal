@@ -8,7 +8,10 @@ async function reconcileCartWithActiveBookings(userId, cart) {
 
   const uid = new mongoose.Types.ObjectId(userId);
   const activeBookings = await Booking.find({ userId: uid, status: "active" }).sort({ createdAt: -1 });
-  const cartIds = new Set(cart.map((item) => item.id));
+  const activeIds = new Set(activeBookings.map((booking) => booking._id.toString()));
+
+  const nextCart = cart.filter((item) => item.type !== "booking" || activeIds.has(item.id));
+  const cartIds = new Set(nextCart.map((item) => item.id));
 
   for (const booking of activeBookings) {
     const id = booking._id.toString();
@@ -16,7 +19,7 @@ async function reconcileCartWithActiveBookings(userId, cart) {
       continue;
     }
 
-    cart.push({
+    nextCart.push({
       id,
       type: "booking",
       title: `${booking.deviceName} bron`,
@@ -25,7 +28,7 @@ async function reconcileCartWithActiveBookings(userId, cart) {
     cartIds.add(id);
   }
 
-  return cart;
+  return nextCart;
 }
 
 module.exports = { reconcileCartWithActiveBookings };

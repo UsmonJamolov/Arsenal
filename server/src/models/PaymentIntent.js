@@ -6,6 +6,9 @@ const intentItemSchema = new mongoose.Schema(
     type: { type: String, enum: ["booking", "hookah"], required: true },
     title: { type: String, required: true },
     price: { type: Number, required: true, min: 0 },
+    tableIds: { type: [String], default: undefined },
+    startHour: { type: String, default: undefined },
+    quantity: { type: Number, default: undefined },
   },
   { _id: false },
 );

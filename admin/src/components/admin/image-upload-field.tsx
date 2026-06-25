@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 
-import { adminRequest } from "@/lib/admin-api";
-import { readFileAsDataUrl, resolvePublicAsset } from "@/lib/assets";
+import { adminUploadRequest } from "@/lib/admin-api";
+import { compressImageFile, resolvePublicAsset } from "@/lib/assets";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type ImageUploadFieldProps = {
@@ -27,6 +26,19 @@ export function ImageUploadField({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [previewVersion, setPreviewVersion] = useState(0);
+  const [instantPreview, setInstantPreview] = useState("");
+
+  const remotePreview = value
+    ? `${resolvePublicAsset(value)}${previewVersion ? `?v=${previewVersion}` : ""}`
+    : "";
+  const previewSrc = instantPreview || remotePreview;
+
+  useEffect(() => {
+    if (!value) {
+      setInstantPreview("");
+    }
+  }, [value]);
 
   const upload = async (file: File) => {
     if (!fileBaseName.trim()) {
@@ -38,13 +50,17 @@ export function ImageUploadField({
     setError("");
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      const response = await adminRequest<{ image: string }>(uploadPath, {
+      const dataUrl = await compressImageFile(file);
+      setInstantPreview(dataUrl);
+
+      const response = await adminUploadRequest<{ image: string }>(uploadPath, {
         method: "POST",
         body: JSON.stringify({ slug: fileBaseName.trim(), dataUrl }),
       });
       onChange(response.image);
+      setPreviewVersion(Date.now());
     } catch (uploadError) {
+      setInstantPreview("");
       setError(uploadError instanceof Error ? uploadError.message : "Rasm yuklanmadi");
     } finally {
       setUploading(false);
@@ -52,11 +68,25 @@ export function ImageUploadField({
   };
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-1", className)}>
       <div className="flex items-center gap-2">
         <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/30">
-          {value ? (
-            <img src={resolvePublicAsset(value)} alt="" className="size-full object-cover" />
+          {previewSrc ? (
+            <img
+              src={previewSrc}
+              alt=""
+              className="size-full object-cover"
+              onLoad={() => {
+                if (instantPreview && remotePreview) {
+                  setInstantPreview("");
+                }
+              }}
+              onError={() => {
+                if (!instantPreview && value) {
+                  setError("Rasm preview yuklanmadi");
+                }
+              }}
+            />
           ) : (
             <div className="flex size-full items-center justify-center text-[10px] text-white/35">Rasm</div>
           )}
@@ -85,7 +115,6 @@ export function ImageUploadField({
           {uploading ? "Yuklanmoqda..." : "Yuklash"}
         </Button>
       </div>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder="/hookah/flavors/..." />
       {error ? <p className="text-[11px] text-rose-300">{error}</p> : null}
     </div>
   );

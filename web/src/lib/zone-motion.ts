@@ -56,6 +56,22 @@ export function zoneItemMotion(index: number, baseDelay: number, reduced: boolea
   };
 }
 
+export function zoneFlavorItemMotion(index: number, rowIndex: number, reduced: boolean) {
+  if (reduced) {
+    return {};
+  }
+
+  return {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: {
+      duration: 0.28,
+      delay: rowIndex * 0.04 + index * 0.03,
+      ease: zoneEase,
+    },
+  };
+}
+
 export function zoneDockMotion(reduced: boolean) {
   if (reduced) {
     return {};

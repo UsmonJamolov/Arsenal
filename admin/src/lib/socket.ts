@@ -1,6 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 
-import { API_URL } from "@/lib/api";
+import { DIRECT_API_URL } from "@/lib/api";
 
 export type RealtimeEntity = "devices" | "tables" | "bookings" | "hookah" | "cart" | "settings" | "all";
 
@@ -19,9 +19,7 @@ export function getSocket() {
   }
 
   if (!socket) {
-    const socketUrl = API_URL || window.location.origin;
-
-    socket = io(socketUrl, {
+    socket = io(DIRECT_API_URL, {
       path: "/socket.io",
       transports: ["polling", "websocket"],
       reconnection: true,

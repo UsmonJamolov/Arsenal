@@ -1,9 +1,10 @@
 const Booking = require("../models/Booking");
-const Device = require("../models/Device");
-const Session = require("../models/Session");
-const { getUserCartState } = require("../store/cartStore");
+const Session = require("../models/Session");const { getUserCartState } = require("../store/cartStore");
 const { pushNotification } = require("./settings");
 const { cancelSessionById } = require("./sessionService");
+const { releaseDeviceIfIdle } = require("./deviceRelease");
+const { syncAllTableStatuses } = require("./tableSync");
+const { broadcastUpdate } = require("../realtime");
 
 function assertBookingOwner(booking, userId) {
   if (!userId) {
@@ -48,13 +49,16 @@ async function cancelBooking(bookingId, userId) {
       return { ok: false, message: "Sessiyani bekor qilib bo'lmadi" };
     }
   } else {
-    await Device.findOneAndUpdate({ slug: booking.deviceId }, { status: "available" });
+    await releaseDeviceIfIdle(booking.deviceId, booking.deviceName, booking._id);
   }
 
   booking.status = "cancelled";
   await booking.save();
 
   await pushNotification(`${booking.deviceName} broni bekor qilindi.`, "bookings");
+  await syncAllTableStatuses({ broadcast: true });
+  broadcastUpdate({ entity: "devices", message: `${booking.deviceName} bo'sh` });
+  broadcastUpdate({ entity: "bookings", message: `${booking.deviceName} broni bekor qilindi` });
 
   return { ok: true, booking };
 }

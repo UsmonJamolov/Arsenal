@@ -4,7 +4,7 @@ import { ChevronRight, CreditCard, Lock, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-import type { ClubSession } from "@/components/game-club/station-unlock-panel";
+import type { ClubSession } from "@/lib/club-session";
 import { Input } from "@/components/ui/input";
 import { getSession } from "@/lib/auth";
 import { apiRequest, setApiUserId } from "@/lib/api";

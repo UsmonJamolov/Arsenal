@@ -1,4 +1,5 @@
-/* Karta to'lov formasi — Arsenal Union (oq + qizil) */
+/* Karta to'lov formasi — qora + qizil brend (bosh sahifa bilan bir xil) */
+
 .card-checkout {
   box-sizing: border-box;
   display: flex;
@@ -11,9 +12,9 @@
   color: var(--au-text);
   background-color: var(--au-bg);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(200 16 46 / 0.06), transparent 55%),
-    radial-gradient(ellipse 55% 40% at 100% 15%, rgb(255 255 255 / 0.9), transparent 50%),
-    radial-gradient(ellipse 45% 35% at 0% 40%, rgb(200 16 46 / 0.04), transparent 45%);
+    radial-gradient(ellipse 90% 55% at 50% -5%, rgb(227 24 55 / 0.14), transparent 58%),
+    radial-gradient(ellipse 50% 35% at 100% 20%, rgb(227 24 55 / 0.08), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 0% 60%, rgb(227 24 55 / 0.06), transparent 45%);
 }
 
 .card-checkout__shell {
@@ -28,11 +29,11 @@
   max-height: calc(100svh - 1.5rem);
   padding: 1.25rem;
   border-radius: 1.5rem;
-  border: 1px solid var(--au-border);
-  background: rgb(255 255 255 / 0.98);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: linear-gradient(160deg, rgb(22 22 31 / 0.96), rgb(15 15 20 / 0.98));
   box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.8) inset,
-    0 24px 56px var(--au-shadow);
+    0 24px 56px var(--au-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
   overflow: hidden;
 }
 
@@ -43,7 +44,7 @@
   width: 10rem;
   height: 10rem;
   border-radius: 999px;
-  background: radial-gradient(circle, rgb(200 16 46 / 0.14) 0%, transparent 72%);
+  background: radial-gradient(circle, rgb(227 24 55 / 0.22) 0%, transparent 72%);
   pointer-events: none;
 }
 
@@ -66,15 +67,16 @@
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(200 16 46 / 0.22);
+  border: 1px solid rgb(227 24 55 / 0.28);
   background: var(--au-red-soft);
-  color: var(--au-red);
+  color: var(--au-red-bright);
+  box-shadow: 0 0 16px rgb(227 24 55 / 0.15);
 }
 
 .card-checkout__provider-label {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--au-red);
+  color: var(--au-red-bright);
 }
 
 .card-checkout__title {
@@ -92,11 +94,11 @@
   margin: 0.5rem 0 0;
   padding: 0.35rem 0.65rem;
   border-radius: 999px;
-  border: 1px solid rgb(200 16 46 / 0.18);
-  background: var(--au-red-soft);
+  border: 1px solid rgb(227 24 55 / 0.22);
+  background: rgb(227 24 55 / 0.1);
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--au-red-dark);
+  color: var(--au-text-secondary);
 }
 
 .card-checkout__loading {
@@ -109,10 +111,10 @@
   margin: 0;
   padding: 0.625rem 0.75rem;
   border-radius: 0.75rem;
-  border: 1px solid rgb(200 16 46 / 0.28);
-  background: rgb(200 16 46 / 0.08);
+  border: 1px solid rgb(227 24 55 / 0.32);
+  background: rgb(227 24 55 / 0.12);
   font-size: 0.8125rem;
-  color: var(--au-red-dark);
+  color: var(--au-red-bright);
 }
 
 .card-checkout__amount {
@@ -120,9 +122,12 @@
   z-index: 1;
   padding: 0.875rem 1rem;
   border-radius: 1rem;
-  border: 1px solid rgb(200 16 46 / 0.18);
-  background: linear-gradient(135deg, var(--au-red-soft), rgb(255 255 255 / 0.95));
-  box-shadow: 0 4px 24px var(--au-shadow);
+  border: 1px solid rgb(227 24 55 / 0.22);
+  background: linear-gradient(135deg, rgb(22 22 31 / 0.98), rgb(15 15 20 / 0.92));
+  box-shadow:
+    0 8px 28px var(--au-shadow),
+    0 0 24px rgb(227 24 55 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .card-checkout__amount-label {
@@ -140,7 +145,7 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  color: var(--au-text);
+  color: var(--au-red-bright);
 }
 
 .card-checkout__form {
@@ -154,8 +159,8 @@
   min-height: 0;
   padding: 1rem;
   border-radius: 1rem;
-  border: 1px solid var(--au-border);
-  background: var(--au-bg);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(0 0 0 / 0.28);
 }
 
 .card-checkout__field {
@@ -178,18 +183,18 @@
 }
 
 .card-checkout__input {
-  border-color: var(--au-border) !important;
-  background: rgb(255 255 255 / 0.96) !important;
+  border-color: rgb(255 255 255 / 0.1) !important;
+  background: var(--au-surface-raised) !important;
   color: var(--au-text) !important;
 }
 
 .card-checkout__input::placeholder {
-  color: rgb(110 110 115 / 0.65) !important;
+  color: rgb(142 142 147 / 0.75) !important;
 }
 
 .card-checkout__input:focus {
-  border-color: rgb(200 16 46 / 0.45) !important;
-  box-shadow: 0 0 0 3px rgb(200 16 46 / 0.12) !important;
+  border-color: rgb(227 24 55 / 0.45) !important;
+  box-shadow: 0 0 0 3px rgb(227 24 55 / 0.16) !important;
 }
 
 .card-checkout__actions {
@@ -213,12 +218,14 @@
   height: 3rem;
   border: none;
   border-radius: 999px;
-  background: var(--au-red);
+  background: linear-gradient(180deg, var(--au-red-bright) 0%, var(--au-red) 100%);
   color: var(--au-white);
   font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgb(200 16 46 / 0.28);
+  box-shadow:
+    0 0 24px rgb(227 24 55 / 0.35),
+    0 8px 20px rgb(227 24 55 / 0.2);
   transition:
     transform 0.15s ease,
     opacity 0.15s ease,
@@ -227,7 +234,9 @@
 
 .card-checkout__pay:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgb(200 16 46 / 0.35);
+  box-shadow:
+    0 0 28px rgb(227 24 55 / 0.42),
+    0 10px 24px rgb(227 24 55 / 0.28);
 }
 
 .card-checkout__pay:disabled {
@@ -237,7 +246,7 @@
 }
 
 .card-checkout__pay:focus-visible {
-  outline: 2px solid rgb(200 16 46 / 0.45);
+  outline: 2px solid rgb(227 24 55 / 0.45);
   outline-offset: 2px;
 }
 
@@ -250,7 +259,7 @@
   justify-content: center;
   height: 2.75rem;
   border-radius: 999px;
-  border: 1px solid var(--au-border);
+  border: 1px solid rgb(255 255 255 / 0.1);
   background: transparent;
   color: var(--au-muted);
   font-size: 0.9375rem;
@@ -263,12 +272,12 @@
 }
 
 .card-checkout__cancel:hover {
-  border-color: rgb(200 16 46 / 0.28);
+  border-color: rgb(227 24 55 / 0.28);
   background: var(--au-red-soft);
-  color: var(--au-red);
+  color: var(--au-red-bright);
 }
 
 .card-checkout__cancel:focus-visible {
-  outline: 2px solid rgb(200 16 46 / 0.35);
+  outline: 2px solid rgb(227 24 55 / 0.35);
   outline-offset: 2px;
 }

@@ -1,0 +1,176 @@
+/* To'lov natijasi — qora + qizil brend (bosh sahifa bilan bir xil) */
+
+.payment-return {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 100svh;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  color: var(--au-text);
+  background-color: var(--au-bg);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -5%, rgb(227 24 55 / 0.14), transparent 58%),
+    radial-gradient(ellipse 50% 35% at 100% 20%, rgb(227 24 55 / 0.08), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 0% 60%, rgb(227 24 55 / 0.06), transparent 45%);
+}
+
+.payment-return__shell {
+  position: relative;
+  width: 100%;
+  max-width: 24rem;
+  padding: 1.5rem 1.25rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: linear-gradient(160deg, rgb(22 22 31 / 0.96), rgb(15 15 20 / 0.98));
+  box-shadow:
+    0 24px 56px var(--au-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+  text-align: center;
+}
+
+.payment-return__shell::before {
+  content: "";
+  position: absolute;
+  top: -3rem;
+  right: -2rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(227 24 55 / 0.2) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.payment-return__badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0 auto 1rem;
+  border-radius: 999px;
+  border: 1px solid rgb(227 24 55 / 0.28);
+  background: var(--au-red-soft);
+  color: var(--au-red-bright);
+  box-shadow: 0 0 24px rgb(227 24 55 / 0.2);
+}
+
+.payment-return__badge--paid {
+  border-color: rgb(34 197 94 / 0.35);
+  background: rgb(34 197 94 / 0.12);
+  color: #4ade80;
+  box-shadow: 0 0 24px rgb(34 197 94 / 0.15);
+}
+
+.payment-return__badge--cancelled,
+.payment-return__badge--error {
+  border-color: rgb(227 24 55 / 0.35);
+  background: rgb(227 24 55 / 0.12);
+  color: var(--au-red-bright);
+}
+
+.payment-return__badge--pending {
+  border-color: rgb(245 158 11 / 0.35);
+  background: rgb(245 158 11 / 0.12);
+  color: #fbbf24;
+}
+
+.payment-return__title {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--au-text);
+}
+
+.payment-return__meta {
+  position: relative;
+  z-index: 1;
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--au-muted);
+}
+
+.payment-return__amount {
+  position: relative;
+  z-index: 1;
+  margin: 1rem 0 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--au-red-bright);
+}
+
+.payment-return__message {
+  position: relative;
+  z-index: 1;
+  margin: 0.875rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--au-text-secondary);
+}
+
+.payment-return__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 1.25rem;
+}
+
+.payment-return__cta {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--au-red-bright) 0%, var(--au-red) 100%);
+  color: var(--au-white);
+  font-size: 1rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow:
+    0 0 24px rgb(227 24 55 / 0.35),
+    0 8px 20px rgb(227 24 55 / 0.2);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.payment-return__cta:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 28px rgb(227 24 55 / 0.42),
+    0 10px 24px rgb(227 24 55 / 0.28);
+}
+
+.payment-return__cta--secondary {
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: transparent;
+  color: var(--au-muted);
+  box-shadow: none;
+}
+
+.payment-return__cta--secondary:hover {
+  border-color: rgb(227 24 55 / 0.28);
+  background: var(--au-red-soft);
+  color: var(--au-red-bright);
+  box-shadow: none;
+}
+
+.payment-return__loading {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--au-muted);
+}

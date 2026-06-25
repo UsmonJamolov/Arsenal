@@ -4,9 +4,11 @@ const { adminEmail, adminFirstName, adminLastName, adminPassword, adminPhone } =
 const Device = require("../models/Device");
 const Table = require("../models/Table");
 const HookahFlavor = require("../models/HookahFlavor");
+const HookahBrand = require("../models/HookahBrand");
 const AppSettings = require("../models/AppSettings");
 const User = require("../models/User");
 const { HOOKAH_FLAVORS } = require("../data/hookahFlavors");
+const { HOOKAH_BRANDS } = require("../data/hookahBrands");
 
 const DEVICE_BASE = [
   {
@@ -64,7 +66,7 @@ const DEVICE_BASE = [
 ];
 
 const TABLES = [
-  { slug: "table-01", title: "Stol 01", status: "busy", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-01.png" },
+  { slug: "table-01", title: "Stol 01", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-01.png" },
   { slug: "table-02", title: "Stol 02", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-02.png" },
   { slug: "table-03", title: "Stol 03", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-03.png" },
 ];
@@ -130,9 +132,27 @@ async function ensureHookahFlavors() {
   await HookahFlavor.deleteMany({ slug: { $nin: slugs } });
 }
 
+async function ensureHookahBrands() {
+  for (const brand of HOOKAH_BRANDS) {
+    await HookahBrand.findOneAndUpdate(
+      { slug: brand.slug },
+      { $set: brand },
+      { upsert: true, new: true },
+    );
+  }
+}
+
 async function ensureTables() {
   for (const table of TABLES) {
-    await Table.findOneAndUpdate({ slug: table.slug }, { $set: table }, { upsert: true, new: true });
+    const { status, slug, ...meta } = table;
+    await Table.findOneAndUpdate(
+      { slug },
+      {
+        $set: meta,
+        $setOnInsert: { slug, status: status ?? "available" },
+      },
+      { upsert: true, new: true },
+    );
   }
 }
 
@@ -149,8 +169,14 @@ async function seedDatabase() {
   }
 
   await ensureHookahFlavors();
+  await ensureHookahBrands();
   await ensureTables();
   await ensureAdminUser();
+
+  const { syncAllTableStatuses } = require("../services/tableSync");
+  const { backfillHookahOrdersFromPayments } = require("../services/hookahOrderService");
+  await syncAllTableStatuses({ broadcast: false });
+  await backfillHookahOrdersFromPayments();
 }
 
 module.exports = { seedDatabase, ensureAdminUser };

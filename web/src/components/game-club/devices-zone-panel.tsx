@@ -31,9 +31,6 @@ export function DevicesZonePanel({
 
   return (
     <motion.div className="devices-zone" {...zonePageMotion(reduced)}>
-      <div className="devices-zone__glow devices-zone__glow--red" aria-hidden />
-      <div className="devices-zone__glow devices-zone__glow--white" aria-hidden />
-
       <motion.header className="devices-zone__header" {...zoneSectionMotion(0, reduced)}>
         <button
           type="button"

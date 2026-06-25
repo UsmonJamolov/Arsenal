@@ -2,6 +2,7 @@ const express = require("express");
 const { pushNotification } = require("../services/settings");
 const { cancelBooking } = require("../services/bookingService");
 const { reconcileCartWithActiveBookings } = require("../services/cartReconcile");
+const { syncAllTableStatuses } = require("../services/tableSync");
 
 const router = express.Router();
 
@@ -39,6 +40,7 @@ router.delete("/", async (req, res, next) => {
 
     req.userCart.cart = [];
     req.userCart.paymentStatus = "pending";
+    await syncAllTableStatuses({ broadcast: true });
     await pushNotification("Savat tozalandi.", "cart");
 
     res.json({ items: [], total: 0, paymentStatus: req.userCart.paymentStatus });
@@ -48,11 +50,18 @@ router.delete("/", async (req, res, next) => {
 });
 
 router.delete("/:id", async (req, res) => {
-  const before = req.userCart.cart.length;
+  const removed = req.userCart.cart.find((item) => item.id === req.params.id);
+
+  if (!removed) {
+    return res.status(404).json({ message: "Savat elementi topilmadi" });
+  }
+
   req.userCart.cart = req.userCart.cart.filter((item) => item.id !== req.params.id);
 
-  if (req.userCart.cart.length === before) {
-    return res.status(404).json({ message: "Savat elementi topilmadi" });
+  if (removed.type === "booking") {
+    await cancelBooking(removed.id, req.userId);
+  } else if (removed.type === "hookah") {
+    await syncAllTableStatuses({ broadcast: true });
   }
 
   await pushNotification("Savatdan element olib tashlandi.", "cart");

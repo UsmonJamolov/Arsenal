@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { Check, Clock, CreditCard, XCircle } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSession } from "@/lib/auth";
 import { apiRequest, setApiUserId } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { savePendingSessions } from "@/lib/user-storage";
-import type { ClubSession } from "@/components/game-club/station-unlock-panel";
+import type { ClubSession } from "@/lib/club-session";
+import { cn } from "@/lib/utils";
 
 type PaymentIntent = {
   id: string;
@@ -19,11 +19,57 @@ type PaymentIntent = {
   status: string;
 };
 
+function statusTitle(status: PaymentReturnContentProps["status"]) {
+  if (status === "paid") return "To'lov muvaffaqiyatli";
+  if (status === "cancelled") return "To'lov bekor qilindi";
+  if (status === "pending") return "To'lov kutilmoqda";
+  if (status === "error") return "Xatolik";
+  return "Tekshirilmoqda";
+}
+
+type PaymentReturnContentProps = {
+  status: "loading" | "paid" | "pending" | "cancelled" | "error";
+};
+
+function StatusBadge({ status }: PaymentReturnContentProps) {
+  const iconClass = "size-6";
+
+  if (status === "paid") {
+    return (
+      <div className={cn("payment-return__badge", "payment-return__badge--paid")}>
+        <Check className={iconClass} strokeWidth={2.5} />
+      </div>
+    );
+  }
+
+  if (status === "cancelled" || status === "error") {
+    return (
+      <div className={cn("payment-return__badge", "payment-return__badge--cancelled")}>
+        <XCircle className={iconClass} strokeWidth={2.25} />
+      </div>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <div className={cn("payment-return__badge", "payment-return__badge--pending")}>
+        <Clock className={iconClass} strokeWidth={2.25} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="payment-return__badge">
+      <CreditCard className={iconClass} strokeWidth={2.25} />
+    </div>
+  );
+}
+
 function PaymentReturnContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const intentId = searchParams.get("intent");
-  const [status, setStatus] = useState<"loading" | "paid" | "pending" | "cancelled" | "error">("loading");
+  const [status, setStatus] = useState<PaymentReturnContentProps["status"]>("loading");
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -99,45 +145,45 @@ function PaymentReturnContent() {
   }, [intentId]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center px-4 py-10">
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>
-            {status === "paid"
-              ? "To'lov muvaffaqiyatli"
-              : status === "cancelled"
-                ? "To'lov bekor qilindi"
-                : status === "pending"
-                  ? "To'lov kutilmoqda"
-                  : status === "error"
-                    ? "Xatolik"
-                    : "Tekshirilmoqda"}
-          </CardTitle>
-          <CardDescription>
-            {intent ? `${intent.method} — ${formatCurrency(intent.total)}` : "To'lov natijasi"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {status === "loading" ? <p className="text-sm text-text-muted">Holat tekshirilmoqda...</p> : null}
-          {message ? <p className="text-sm text-text-secondary">{message}</p> : null}
+    <main className="payment-return">
+      <div className="payment-return__shell">
+        <StatusBadge status={status} />
+        <h1 className="payment-return__title">{statusTitle(status)}</h1>
+        {intent ? (
+          <>
+            <p className="payment-return__meta">{intent.method}</p>
+            <p className="payment-return__amount">{formatCurrency(intent.total)}</p>
+          </>
+        ) : (
+          <p className="payment-return__meta">To&apos;lov natijasi</p>
+        )}
+        {status === "loading" ? <p className="payment-return__message">Holat tekshirilmoqda...</p> : null}
+        {message ? <p className="payment-return__message">{message}</p> : null}
+        <div className="payment-return__actions">
           {status === "paid" ? (
-            <Button className="w-full" onClick={() => router.push("/")}>
+            <button type="button" className="payment-return__cta" onClick={() => router.push("/")}>
               Asosiy sahifaga qaytish
-            </Button>
+            </button>
           ) : (
-            <Button className="w-full" variant="secondary" asChild>
-              <Link href="/">Ilovaga qaytish</Link>
-            </Button>
+            <Link href="/" className="payment-return__cta payment-return__cta--secondary">
+              Ilovaga qaytish
+            </Link>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </main>
   );
 }
 
 export default function PaymentReturnPage() {
   return (
-    <Suspense fallback={<main className="p-10 text-sm text-text-muted">Yuklanmoqda...</main>}>
+    <Suspense
+      fallback={
+        <main className="payment-return">
+          <p className="payment-return__loading">Yuklanmoqda...</p>
+        </main>
+      }
+    >
       <PaymentReturnContent />
     </Suspense>
   );

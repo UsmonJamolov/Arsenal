@@ -19,7 +19,63 @@ export type ClubTable = {
   image?: string;
 };
 
-export type HookahFlavorBrand = "serbetli" | "liara";
+export type HookahBrand = {
+  id: string;
+  title: string;
+  isPremium?: boolean;
+  sortOrder?: number;
+};
+
+export function mergeHookahBrands(brands: HookahBrand[], flavors: HookahFlavor[]): HookahBrand[] {
+  const byId = new Map<string, HookahBrand>();
+
+  for (const brand of brands) {
+    byId.set(brand.id, brand);
+  }
+
+  for (const flavor of flavors) {
+    const id = flavor.brand?.trim();
+    if (!id || byId.has(id)) {
+      continue;
+    }
+
+    byId.set(id, {
+      id,
+      title: id
+        .split("-")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" "),
+      sortOrder: 999,
+    });
+  }
+
+  return [...byId.values()].sort(
+    (left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0) || left.title.localeCompare(right.title),
+  );
+}
+
+export function groupFlavorsByBrand(brands: HookahBrand[], flavors: HookahFlavor[]) {
+  const sortedBrands = mergeHookahBrands(brands, flavors);
+  const defaultBrandId = sortedBrands[0]?.id ?? "serbetli";
+
+  const sections = sortedBrands.map((brand) => ({
+    brand,
+    flavors: flavors.filter((flavor) => (flavor.brand ?? defaultBrandId) === brand.id),
+  }));
+
+  const knownBrandIds = new Set(sortedBrands.map((brand) => brand.id));
+  const orphanFlavors = flavors.filter((flavor) => flavor.brand && !knownBrandIds.has(flavor.brand));
+
+  if (orphanFlavors.length) {
+    sections.push({
+      brand: { id: "other", title: "Boshqa", isPremium: false, sortOrder: 999 },
+      flavors: orphanFlavors,
+    });
+  }
+
+  return sections;
+}
 
 export type HookahFlavorCategoryId = "fruit" | "reshalt" | "cold" | "sweet" | "drink";
 
@@ -30,7 +86,7 @@ export type HookahFlavor = {
   title: string;
   price: number;
   image?: string;
-  brand?: HookahFlavorBrand;
+  brand?: string;
   category?: HookahFlavorCategoryId;
 };
 

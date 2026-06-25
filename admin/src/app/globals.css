@@ -149,6 +149,59 @@ body {
   color: white;
 }
 
+/* Admin — faqat boshqaruv paneli ichida scroll */
+.admin-shell {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.admin-panel-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-panel-scroll:has(.admin-table-panel) {
+  overflow: hidden;
+}
+
+.admin-table-panel {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.admin-table-card {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-table-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.admin-table-scroll table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--arena-surface);
+  box-shadow: 0 1px 0 var(--border-subtle);
+}
+
 @keyframes auth-grid-drift {
   from {
     background-position: 0 0;

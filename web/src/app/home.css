@@ -49,9 +49,9 @@
 .payment-screen-bg {
   background-color: var(--au-bg);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(200 16 46 / 0.06), transparent 55%),
-    radial-gradient(ellipse 55% 40% at 100% 15%, rgb(255 255 255 / 0.9), transparent 50%),
-    radial-gradient(ellipse 45% 35% at 0% 40%, rgb(200 16 46 / 0.04), transparent 45%);
+    radial-gradient(ellipse 90% 55% at 50% -5%, rgb(227 24 55 / 0.14), transparent 58%),
+    radial-gradient(ellipse 50% 35% at 100% 20%, rgb(227 24 55 / 0.08), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 0% 60%, rgb(227 24 55 / 0.06), transparent 45%);
 }
 
 .payment-screen-theme {
@@ -77,9 +77,9 @@
 .devices-screen-bg {
   background-color: var(--au-bg);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(200 16 46 / 0.06), transparent 55%),
-    radial-gradient(ellipse 55% 40% at 100% 15%, rgb(255 255 255 / 0.9), transparent 50%),
-    radial-gradient(ellipse 45% 35% at 0% 40%, rgb(200 16 46 / 0.04), transparent 45%);
+    radial-gradient(ellipse 90% 55% at 50% -5%, rgb(227 24 55 / 0.14), transparent 58%),
+    radial-gradient(ellipse 50% 35% at 100% 20%, rgb(227 24 55 / 0.08), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 0% 60%, rgb(227 24 55 / 0.06), transparent 45%);
   min-height: 100dvh;
 }
 

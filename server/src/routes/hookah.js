@@ -1,5 +1,6 @@
 const express = require("express");
 const HookahFlavor = require("../models/HookahFlavor");
+const HookahBrand = require("../models/HookahBrand");
 const Table = require("../models/Table");
 const { pushNotification } = require("../services/settings");
 const {
@@ -8,6 +9,7 @@ const {
   isMixValid,
   buildHookahMixTitle,
 } = require("../utils/hookahMix");
+const { reserveTables } = require("../services/tableSync");
 
 const router = express.Router();
 
@@ -15,6 +17,15 @@ router.get("/flavors", async (req, res, next) => {
   try {
     const flavors = await HookahFlavor.find().sort({ createdAt: 1 });
     res.json(flavors.map((f) => f.toJSON()));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/brands", async (req, res, next) => {
+  try {
+    const brands = await HookahBrand.find().sort({ sortOrder: 1, createdAt: 1 });
+    res.json(brands.map((brand) => brand.toJSON()));
   } catch (error) {
     next(error);
   }
@@ -61,6 +72,13 @@ router.post("/orders", async (req, res, next) => {
       return res.status(400).json({ message: "Stol topilmadi" });
     }
 
+    const blocked = tables.filter((table) => table.status !== "available");
+    if (blocked.length) {
+      return res.status(409).json({
+        message: `${blocked.map((table) => table.title).join(", ")} band yoki bron qilingan`,
+      });
+    }
+
     const hour = String(startHour).trim();
     const quantity = Math.max(1, Math.min(99, Number.parseInt(String(req.body?.quantity ?? 1), 10) || 1));
     const flavorSlugs = flavors.map((flavor) => flavor.slug);
@@ -83,11 +101,15 @@ router.post("/orders", async (req, res, next) => {
     const cartItem = {
       id: `hk-${Date.now()}`,
       type: "hookah",
+      tableIds: uniqueTableIds,
+      startHour: hour,
+      quantity,
       title: `${quantityLabel}${flavorTitles} (${tableTitles}) • ${hour}`,
       price: totalPrice,
     };
 
     req.userCart.cart.push(cartItem);
+    await reserveTables(uniqueTableIds);
     await pushNotification("Kalyan buyurtmasi savatga qo'shildi.", "hookah");
 
     res.status(201).json(cartItem);

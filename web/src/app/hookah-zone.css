@@ -111,27 +111,18 @@
   transform: scale(0.96);
 }
 
-.hookah-zone__cart {
-  position: relative;
+.hookah-zone__icon-btn--static {
+  pointer-events: none;
+  cursor: default;
 }
 
-.hookah-zone__cart-badge {
-  position: absolute;
-  top: -0.3rem;
-  right: -0.3rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.125rem;
-  height: 1.125rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
-  background: #ff3b30;
-  color: #fff;
-  font-size: 0.625rem;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow: 0 0 10px rgb(255 59 48 / 0.45);
+.hookah-zone__icon-btn--static:hover {
+  background: rgb(0 0 0 / 0.38);
+  border-color: rgb(255 255 255 / 0.16);
+}
+
+.hookah-zone__icon-btn--static:active {
+  transform: none;
 }
 
 .hookah-zone__hero-bottom {
@@ -382,8 +373,17 @@
     0 8px 24px rgb(0 0 0 / 0.35);
 }
 
-.hookah-zone__table-card--dim {
-  opacity: 0.65;
+.hookah-zone__table-card--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.hookah-zone__table-card--disabled:hover,
+.hookah-zone__table-card--disabled:active {
+  transform: none;
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow: none;
 }
 
 .hookah-zone__table-media {
@@ -495,123 +495,175 @@
   color: rgb(255 255 255 / 0.55);
 }
 
-.hookah-zone__flavors-track {
-  display: flex;
+.hookah-zone__flavor-row-empty {
+  margin: 0;
+  padding: 0.75rem 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgb(255 255 255 / 0.35);
+}
+
+.hookah-zone__flavors-track--grid-2 {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, auto));
+  grid-auto-flow: column;
+  grid-auto-columns: 19.5rem;
+  align-items: start;
   gap: 0.75rem;
   width: 100%;
   max-width: 100%;
+  margin-inline: -0.25rem;
+  padding-inline: 0.25rem 1rem;
   overflow-x: auto;
   overflow-y: visible;
-  padding-bottom: 0.25rem;
+  padding-bottom: 0.35rem;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
 }
 
-.hookah-zone__flavors-track::-webkit-scrollbar {
+.hookah-zone__flavors-track--grid-2::-webkit-scrollbar {
   display: none;
+}
+
+.hookah-zone__flavors-track--grid-2 .hookah-zone__flavor-card {
+  width: 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+.hookah-zone__flavors-track--grid-2 .hookah-zone__flavor-name {
+  font-size: 0.9375rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .hookah-zone__flavor-card {
   position: relative;
   display: flex;
-  flex-direction: column;
-  flex: 0 0 9.25rem;
-  width: 9.25rem;
-  scroll-snap-align: start;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  width: 100%;
   min-width: 0;
-  padding: 0.625rem;
-  border-radius: 1.25rem;
-  border: 1px solid var(--hookah-card-border);
-  background: var(--hookah-card);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.32);
-  overflow: hidden;
+  min-height: 5.75rem;
+  padding: 0.55rem 0.5rem;
+  border-radius: 1.0625rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(14 14 18 / 0.98);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.3);
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
   transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.15s ease;
 }
 
 .hookah-zone__flavor-card:active {
-  transform: scale(0.98);
+  transform: scale(0.995);
 }
 
 .hookah-zone__flavor-card--active {
-  border-color: rgb(233 51 95 / 0.45);
+  border-color: rgb(227 24 55 / 0.5);
   box-shadow:
-    0 0 0 1px rgb(233 51 95 / 0.1),
-    0 0 20px rgb(233 51 95 / 0.1),
-    0 8px 24px rgb(0 0 0 / 0.32);
-}
-
-.hookah-zone__flavor-fav {
-  position: absolute;
-  top: 0.625rem;
-  right: 0.625rem;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border: none;
-  border-radius: 999px;
-  background: rgb(0 0 0 / 0.35);
-  color: rgb(255 255 255 / 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+    0 0 0 1px rgb(227 24 55 / 0.14),
+    0 0 22px rgb(227 24 55 / 0.14),
+    0 12px 32px rgb(0 0 0 / 0.34);
 }
 
 .hookah-zone__flavor-media {
   position: relative;
-  margin-bottom: 0.5rem;
+  flex: 0 0 4.75rem;
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 0.8125rem;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgb(28 28 36 / 0.9), rgb(12 12 16 / 0.95));
 }
 
-.hookah-zone__flavor-selected {
+.hookah-zone__flavor-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.8125rem;
+  object-fit: cover;
+  object-position: center;
+  background: #0a0a0f;
+}
+
+.hookah-zone__flavor-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.15rem 1.75rem 0.15rem 0.625rem;
+}
+
+.hookah-zone__flavor-copy {
+  min-width: 0;
+}
+
+.hookah-zone__flavor-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hookah-zone__flavor-meta {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.42);
+}
+
+.hookah-zone__flavor-price {
+  margin: 0.3rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--au-red-bright, #ff2d4a);
+}
+
+.hookah-zone__flavor-check {
   position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  z-index: 2;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 999px;
-  background: var(--hookah-pink);
+  border: 1.5px solid rgb(255 255 255 / 0.22);
+  background: rgb(0 0 0 / 0.35);
+  color: transparent;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hookah-zone__flavor-check--active {
+  border-color: rgb(227 24 55 / 0.35);
+  background: linear-gradient(180deg, var(--au-red-bright, #ff2d4a), var(--au-red, #e31837));
   color: #ffffff;
-  box-shadow: 0 4px 12px var(--hookah-pink-glow);
-}
-
-.hookah-zone__flavor-art {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 0.82;
-  border-radius: 0.875rem;
-  object-fit: cover;
-  object-position: center;
-  background: #0a0a0f;
-}
-
-.hookah-zone__flavor-name {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.25;
-  color: #ffffff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.4em;
-}
-
-.hookah-zone__flavor-price {
-  margin: 0.2rem 0 0;
-  font-size: 0.75rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--hookah-pink);
+  box-shadow: 0 0 14px rgb(227 24 55 / 0.4);
 }
 
 /* ── Mix section ── */

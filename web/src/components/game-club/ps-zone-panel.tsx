@@ -167,6 +167,7 @@ export function PsZonePanel({
           </motion.div>
         ) : (
           <motion.div
+            className="ps-zone__booking-body"
             initial={reduced ? false : { opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
@@ -212,8 +213,8 @@ export function PsZonePanel({
 
             <div className="ps-zone__total">
               <div>
-                <p className="text-sm text-[var(--au-muted)]">Jami</p>
-                <p className="tabular-data text-2xl font-bold text-[var(--au-red)]">{formatCurrency(bookingPrice)}</p>
+                <p className="ps-zone__total-label">Jami</p>
+                <p className="ps-zone__total-price">{formatCurrency(bookingPrice)}</p>
               </div>
               <div
                 className="ps-zone__total-art"

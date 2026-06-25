@@ -5,6 +5,9 @@ const { getUserCartState } = require("../store/cartStore");
 const { pushNotification: pushStoreNotification } = require("../store");
 const { pushNotification } = require("./settings");
 const { createSessionFromBooking } = require("./sessionService");
+const { syncAllTableStatuses, occupyTables } = require("./tableSync");
+const { createHookahOrderFromPaymentItem } = require("./hookahOrderService");
+const { broadcastUpdate } = require("../realtime");
 
 async function completePaymentIntent(intentId, { externalTransactionId = "", metadata = {} } = {}) {
   const intent = await PaymentIntent.findById(intentId);
@@ -40,8 +43,14 @@ async function completePaymentIntent(intentId, { externalTransactionId = "", met
 
   const sessions = [];
   const paidAt = new Date();
+  const occupiedTableIds = [];
 
   for (const item of intent.items) {
+    if (item.type === "hookah" && Array.isArray(item.tableIds)) {
+      occupiedTableIds.push(...item.tableIds);
+      continue;
+    }
+
     if (item.type !== "booking") {
       continue;
     }
@@ -90,6 +99,22 @@ async function completePaymentIntent(intentId, { externalTransactionId = "", met
     paidAt,
   });
 
+  for (const item of intent.items) {
+    if (item.type !== "hookah") {
+      continue;
+    }
+
+    try {
+      await createHookahOrderFromPaymentItem({
+        userId: intent.userId,
+        paymentId: payment._id,
+        item,
+      });
+    } catch (error) {
+      console.error(`[payment] kalyan buyurtmasi yaratilmadi (${item.id}):`, error.message);
+    }
+  }
+
   intent.status = "paid";
   intent.paidAt = paidAt;
   if (externalTransactionId) {
@@ -101,6 +126,14 @@ async function completePaymentIntent(intentId, { externalTransactionId = "", met
   const userCart = getUserCartState(intent.userId.toString());
   userCart.cart = [];
   userCart.paymentStatus = "paid";
+
+  if (occupiedTableIds.length) {
+    await occupyTables(occupiedTableIds, { broadcast: false });
+  }
+
+  await syncAllTableStatuses({ broadcast: true });
+
+  broadcastUpdate({ entity: "bookings", message: "Yangi to'lov qabul qilindi" });
 
   const message = `To'lov muvaffaqiyatli! Jami: ${intent.total} so'm (${intent.method}).`;
   pushStoreNotification(message);

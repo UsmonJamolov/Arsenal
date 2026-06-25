@@ -11,7 +11,6 @@ import { PcZonePanel } from "@/components/game-club/pc-zone-panel";
 import { PsZonePanel } from "@/components/game-club/ps-zone-panel";
 import { CartZonePanel } from "@/components/game-club/cart-zone-panel";
 import { PaymentZonePanel } from "@/components/game-club/payment-zone-panel";
-import { StationUnlockPanel, type ClubSession } from "@/components/game-club/station-unlock-panel";
 import { ProfilePanel } from "@/components/profile/profile-panel";
 import { getSession, clearSession, type UserSession } from "@/lib/auth";
 
@@ -34,7 +33,9 @@ import {
   areHookahMixesValid,
   createEqualHookahMix,
   syncHookahMixes,
+  mergeHookahBrands,
   type HookahFlavor,
+  type HookahBrand,
   type HookahFlavorMix,
   type OrderRecord,
   ORDER_TYPE_LABEL,
@@ -46,7 +47,7 @@ import {
   TABS,
 } from "@/lib/game-club-data";
 import { apiRequest, setApiUserId } from "@/lib/api";
-import { clearPendingSessions, loadPendingSessions, loadProfileExtras, savePendingSessions } from "@/lib/user-storage";
+import { loadPendingSessions, loadProfileExtras, savePendingSessions } from "@/lib/user-storage";
 import { formatCurrency } from "@/lib/format";
 import {
   subscribeClubUpdates,
@@ -74,6 +75,7 @@ export function GameClubApp() {
   const [durationHours, setDurationHours] = useState(2);
   const [tables, setTables] = useState<ClubTable[]>([]);
   const [hookahFlavors, setHookahFlavors] = useState<HookahFlavor[]>([]);
+  const [hookahBrands, setHookahBrands] = useState<HookahBrand[]>([]);
   const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
   const [selectedFlavorIds, setSelectedFlavorIds] = useState<string[]>([]);
   const [hookahQuantity, setHookahQuantity] = useState(1);
@@ -87,7 +89,6 @@ export function GameClubApp() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>("connecting");
-  const [pendingSessions, setPendingSessions] = useState<ClubSession[]>([]);
   const [lastPaymentTotal, setLastPaymentTotal] = useState<number | null>(null);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
@@ -99,7 +100,6 @@ export function GameClubApp() {
       setSession(stored);
       setPhone(stored.phone);
       setApiUserId(stored.id);
-      setPendingSessions(loadPendingSessions(stored.id));
     }
   }, []);
 
@@ -137,14 +137,25 @@ export function GameClubApp() {
   }, []);
 
   const loadHookahCatalog = useCallback(async () => {
-    const [tablesRes, flavorsRes] = await Promise.all([
+    const [tablesResult, flavorsResult, brandsResult] = await Promise.allSettled([
       apiRequest<ClubTable[]>("/api/tables"),
       apiRequest<HookahFlavor[]>("/api/hookah/flavors"),
+      apiRequest<HookahBrand[]>("/api/hookah/brands"),
     ]);
-    setTables(tablesRes);
-    setHookahFlavors(flavorsRes);
-    setSelectedTableIds((prev) => prev.filter((id) => tablesRes.some((table) => table.id === id)));
-    setSelectedFlavorIds((prev) => prev.filter((id) => flavorsRes.some((flavor) => flavor.id === id)));
+
+    if (tablesResult.status === "fulfilled") {
+      setTables(tablesResult.value);
+      setSelectedTableIds((prev) => prev.filter((id) => tablesResult.value.some((table) => table.id === id)));
+    }
+
+    const flavors = flavorsResult.status === "fulfilled" ? flavorsResult.value : [];
+    if (flavorsResult.status === "fulfilled") {
+      setHookahFlavors(flavors);
+      setSelectedFlavorIds((prev) => prev.filter((id) => flavors.some((flavor) => flavor.id === id)));
+    }
+
+    const brands = brandsResult.status === "fulfilled" ? brandsResult.value : [];
+    setHookahBrands(mergeHookahBrands(brands, flavors));
   }, []);
 
   const loadBookings = useCallback(async () => {
@@ -178,7 +189,6 @@ export function GameClubApp() {
     if (!session?.id) {
       setPaidOrders([]);
       setLastPaymentTotal(null);
-      setPendingSessions([]);
       setBookings([]);
       setCart([]);
       setPaymentStatus("pending");
@@ -195,7 +205,6 @@ export function GameClubApp() {
       return;
     }
 
-    setPendingSessions(loadPendingSessions<ClubSession>(session.id));
     const profileExtras = loadProfileExtras(session.id, {
       firstName: session.name.split(" ")[0] ?? "",
       lastName: session.name.split(" ").slice(1).join(" "),
@@ -248,7 +257,7 @@ export function GameClubApp() {
         if (shouldRefresh(event.entity, ["devices", "bookings"])) {
           await loadDevices();
         }
-        if (shouldRefresh(event.entity, ["tables", "hookah"])) {
+        if (shouldRefresh(event.entity, ["tables", "hookah", "cart", "bookings"])) {
           await loadHookahCatalog();
         }
         if (shouldRefresh(event.entity, ["bookings"])) {
@@ -372,6 +381,15 @@ export function GameClubApp() {
     setPaymentError(null);
 
     try {
+      setApiUserId(session.id);
+      const cartData = await apiRequest<{ items: CartItem[]; total: number }>("/api/cart");
+      setCart(cartData.items);
+
+      if (!cartData.items.length) {
+        setPaymentError("Savat bo'sh: avval mahsulot yoki bron qo'shing");
+        return;
+      }
+
       const result = await apiRequest<{
         intentId: string;
         status: string;
@@ -407,35 +425,13 @@ export function GameClubApp() {
         method: "POST",
         body: JSON.stringify({ userId: session?.id }),
       });
-      setPendingSessions((prev) => {
-        const next = prev.filter((s) => s.deviceId !== deviceId);
-        if (session?.id) {
-          savePendingSessions(session.id, next);
-        }
-        return next;
-      });
+      if (session?.id && deviceId) {
+        const next = loadPendingSessions<{ deviceId: string }>(session.id).filter((s) => s.deviceId !== deviceId);
+        savePendingSessions(session.id, next);
+      }
       await Promise.all([loadBookings(), loadDevices(), refreshCart()]);
     } catch {
       /* bron bekor qilinmadi */
-    }
-  };
-
-  const cancelSessionById = async (sessionId: string, deviceId?: string) => {
-    try {
-      await apiRequest(`/api/sessions/${sessionId}/cancel`, {
-        method: "POST",
-        body: JSON.stringify({ userId: session?.id }),
-      });
-      setPendingSessions((prev) => {
-        const next = prev.filter((s) => s.id !== sessionId && s.deviceId !== deviceId);
-        if (session?.id) {
-          savePendingSessions(session.id, next);
-        }
-        return next;
-      });
-      await Promise.all([loadBookings(), loadDevices(), refreshCart()]);
-    } catch {
-      /* sessiya bekor qilinmadi */
     }
   };
 
@@ -611,24 +607,28 @@ export function GameClubApp() {
             {activeTab === "hookah" && (
               <HookahZonePanel
                 flavors={hookahFlavors}
+                brands={hookahBrands}
                 tables={tables}
                 loading={hookahLoading}
                 selectedFlavorIds={selectedFlavorIds}
                 selectedTableIds={selectedTableIds}
                 startHour={hookahStartHour}
-                cartCount={cart.length}
                 onBack={() => setActiveTab("home")}
-                onOpenCart={() => setActiveTab("cart")}
                 onToggleFlavor={(id) =>
                   setSelectedFlavorIds((prev) =>
                     prev.includes(id) ? prev.filter((flavorId) => flavorId !== id) : [...prev, id],
                   )
                 }
-                onToggleTable={(id) =>
+                onToggleTable={(id) => {
+                  const table = tables.find((entry) => entry.id === id);
+                  if (table && table.status !== "available") {
+                    return;
+                  }
+
                   setSelectedTableIds((prev) =>
                     prev.includes(id) ? prev.filter((tableId) => tableId !== id) : [...prev, id],
-                  )
-                }
+                  );
+                }}
                 setStartHour={setHookahStartHour}
                 hookahQuantity={hookahQuantity}
                 setHookahQuantity={setHookahQuantity}
@@ -667,15 +667,6 @@ export function GameClubApp() {
                 paymentError={paymentError}
                 setPaymentMethod={setPaymentMethod}
                 onPayNow={payNow}
-                pendingSessions={pendingSessions}
-                onSessionUnlocked={() => {
-                  setPendingSessions([]);
-                  if (session?.id) {
-                    clearPendingSessions(session.id);
-                  }
-                  loadDevices();
-                }}
-                onCancelSession={cancelSessionById}
               />
             )}
             {activeTab === "profile" && session && (
@@ -842,9 +833,6 @@ function PaymentPanel({
   paymentLoading,
   paymentError,
   setPaymentMethod,
-  pendingSessions,
-  onSessionUnlocked,
-  onCancelSession,
 }: {
   cart: CartItem[];
   grandTotal: number;
@@ -853,19 +841,9 @@ function PaymentPanel({
   paymentLoading: boolean;
   paymentError: string | null;
   setPaymentMethod: (method: PaymentMethod) => void;
-  pendingSessions: ClubSession[];
-  onSessionUnlocked: () => void;
-  onCancelSession: (sessionId: string, deviceId?: string) => Promise<void>;
 }) {
   return (
     <div className="space-y-5">
-      {pendingSessions.length > 0 ? (
-        <StationUnlockPanel
-          sessions={pendingSessions}
-          onUnlocked={onSessionUnlocked}
-          onCancelSession={onCancelSession}
-        />
-      ) : null}
       <PaymentZonePanel
         cart={cart}
         grandTotal={grandTotal}

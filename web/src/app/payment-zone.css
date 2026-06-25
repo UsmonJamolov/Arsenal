@@ -1,4 +1,5 @@
-/* To'lov — Arsenal Union (oq + qizil) */
+/* To'lov — qora + qizil brend (bosh sahifa bilan bir xil) */
+
 .payment-zone {
   display: flex;
   flex-direction: column;
@@ -23,10 +24,10 @@
   height: 2.75rem;
   flex-shrink: 0;
   border-radius: 0.875rem;
-  border: 1px solid rgb(200 16 46 / 0.22);
+  border: 1px solid rgb(227 24 55 / 0.28);
   background: var(--au-red-soft);
-  color: var(--au-red);
-  box-shadow: 0 4px 16px var(--au-shadow);
+  color: var(--au-red-bright);
+  box-shadow: 0 0 20px var(--au-red-glow);
 }
 
 .payment-zone__title {
@@ -56,8 +57,12 @@
   padding: 1rem;
   border-radius: 1.25rem;
   border: 1px solid var(--au-border);
-  background: rgb(255 255 255 / 0.96);
-  box-shadow: 0 4px 24px var(--au-shadow);
+  background: rgb(15 15 20 / 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    0 8px 32px var(--au-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .payment-zone__order-list {
@@ -71,10 +76,10 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 0.875rem;
+  padding: 0.875rem;
   border-radius: 0.875rem;
   border: 1px solid var(--au-border);
-  background: var(--au-bg);
+  background: var(--au-surface-raised);
 }
 
 .payment-zone__order-index {
@@ -85,12 +90,12 @@
   height: 2rem;
   padding: 0 0.4rem;
   border-radius: 0.5rem;
-  border: 1px solid rgb(200 16 46 / 0.22);
+  border: 1px solid rgb(227 24 55 / 0.28);
   background: var(--au-red-soft);
   font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: var(--au-red);
+  color: var(--au-red-bright);
 }
 
 .payment-zone__order-body {
@@ -108,15 +113,15 @@
 }
 
 .payment-zone__order-type--hookah {
-  border: 1px solid rgb(155 10 31 / 0.25);
-  background: rgb(155 10 31 / 0.08);
-  color: var(--au-red-dark);
+  border: 1px solid rgb(227 24 55 / 0.22);
+  background: rgb(227 24 55 / 0.08);
+  color: var(--au-red-bright);
 }
 
 .payment-zone__order-type--booking {
-  border: 1px solid rgb(200 16 46 / 0.25);
+  border: 1px solid rgb(227 24 55 / 0.32);
   background: var(--au-red-soft);
-  color: var(--au-red);
+  color: var(--au-red-bright);
 }
 
 .payment-zone__order-title {
@@ -132,7 +137,7 @@
   font-size: 0.875rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--au-red);
+  color: var(--au-red-bright);
   white-space: nowrap;
 }
 
@@ -145,8 +150,8 @@
   min-height: 9rem;
   padding: 1.25rem;
   border-radius: 1.25rem;
-  border: 1px dashed rgb(200 16 46 / 0.22);
-  background: rgb(255 255 255 / 0.85);
+  border: 1px dashed rgb(227 24 55 / 0.22);
+  background: rgb(15 15 20 / 0.72);
   text-align: center;
 }
 
@@ -167,12 +172,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
   padding: 1rem 1.125rem;
   border-radius: 1.125rem;
-  border: 1px solid rgb(200 16 46 / 0.18);
-  background: linear-gradient(135deg, var(--au-red-soft), rgb(255 255 255 / 0.95));
-  box-shadow: 0 4px 24px var(--au-shadow);
+  border: 1px solid rgb(227 24 55 / 0.22);
+  background: linear-gradient(135deg, rgb(22 22 31 / 0.98), rgb(15 15 20 / 0.92));
+  box-shadow:
+    0 8px 28px var(--au-shadow),
+    0 0 24px rgb(227 24 55 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .payment-zone__total-label {
@@ -197,11 +205,11 @@
   flex-shrink: 0;
   padding: 0.35rem 0.65rem;
   border-radius: 999px;
-  border: 1px solid rgb(200 16 46 / 0.2);
-  background: rgb(255 255 255 / 0.9);
+  border: 1px solid rgb(227 24 55 / 0.28);
+  background: var(--au-red-soft);
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--au-red);
+  color: var(--au-red-bright);
 }
 
 .payment-zone__methods-title {
@@ -223,10 +231,10 @@
   align-items: center;
   gap: 0.75rem;
   width: 100%;
-  padding: 0.8rem 0.9rem;
+  padding: 0.875rem;
   border-radius: 1rem;
   border: 1px solid var(--au-border);
-  background: rgb(255 255 255 / 0.96);
+  background: var(--au-surface-raised);
   text-align: left;
   cursor: pointer;
   transition:
@@ -236,14 +244,16 @@
 }
 
 .payment-zone__method:hover {
-  border-color: rgb(200 16 46 / 0.28);
-  background: rgb(255 255 255 / 1);
+  border-color: rgb(227 24 55 / 0.28);
+  background: rgb(22 22 31 / 0.96);
 }
 
 .payment-zone__method--active {
-  border-color: rgb(200 16 46 / 0.45);
-  background: linear-gradient(135deg, var(--au-red-soft), rgb(255 255 255 / 0.98));
-  box-shadow: 0 4px 20px rgb(200 16 46 / 0.12);
+  border-color: rgb(227 24 55 / 0.45);
+  background: linear-gradient(135deg, rgb(227 24 55 / 0.14), rgb(15 15 20 / 0.95));
+  box-shadow:
+    0 0 20px rgb(227 24 55 / 0.12),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 .payment-zone__method-mark {
@@ -254,16 +264,16 @@
   height: 2.25rem;
   border-radius: 0.625rem;
   border: 1px solid var(--au-border);
-  background: var(--au-bg);
+  background: rgb(0 0 0 / 0.28);
   font-size: 0.875rem;
   font-weight: 800;
-  color: var(--au-text);
+  color: var(--au-text-secondary);
 }
 
 .payment-zone__method--active .payment-zone__method-mark {
-  border-color: rgb(200 16 46 / 0.35);
+  border-color: rgb(227 24 55 / 0.35);
   background: var(--au-red-soft);
-  color: var(--au-red);
+  color: var(--au-red-bright);
 }
 
 .payment-zone__method-copy {
@@ -295,7 +305,7 @@
 }
 
 .payment-zone__method--active .payment-zone__method-status {
-  color: var(--au-red);
+  color: var(--au-red-bright);
 }
 
 .payment-zone__pay {
@@ -308,12 +318,14 @@
   margin-bottom: 10px;
   border: none;
   border-radius: 999px;
-  background: var(--au-red);
+  background: linear-gradient(180deg, var(--au-red-bright) 0%, var(--au-red) 100%);
   color: var(--au-white);
   font-size: 1.0625rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgb(200 16 46 / 0.28);
+  box-shadow:
+    0 0 24px rgb(227 24 55 / 0.35),
+    0 8px 20px rgb(227 24 55 / 0.2);
   transition:
     transform 0.15s ease,
     opacity 0.15s ease,
@@ -322,7 +334,9 @@
 
 .payment-zone__pay:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgb(200 16 46 / 0.35);
+  box-shadow:
+    0 0 28px rgb(227 24 55 / 0.42),
+    0 10px 24px rgb(227 24 55 / 0.28);
 }
 
 .payment-zone__pay:disabled {
@@ -332,12 +346,12 @@
 }
 
 .payment-zone__pay:focus-visible {
-  outline: 2px solid rgb(200 16 46 / 0.45);
+  outline: 2px solid rgb(227 24 55 / 0.45);
   outline-offset: 2px;
 }
 
 .payment-zone__error {
   margin: 0;
   font-size: 0.875rem;
-  color: var(--au-red-dark);
+  color: var(--au-red-bright);
 }
