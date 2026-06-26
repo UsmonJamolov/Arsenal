@@ -11,6 +11,7 @@ const HookahFlavor = require("../models/HookahFlavor");
 const HookahBrand = require("../models/HookahBrand");
 const HookahOrder = require("../models/HookahOrder");
 const Payment = require("../models/Payment");
+const Product = require("../models/Product");
 const Table = require("../models/Table");
 const User = require("../models/User");
 const AppSettings = require("../models/AppSettings");
@@ -20,6 +21,7 @@ const { broadcastUpdate } = require("../realtime");
 const { cancelBooking } = require("../services/bookingService");
 const { releaseDeviceIfIdle } = require("../services/deviceRelease");
 const { cancelHookahOrder, completeHookahOrder } = require("../services/hookahOrderService");
+const { notifyOrderAccepted, notifyOrderCompleted } = require("../services/userNotification");
 
 const router = express.Router();
 
@@ -109,7 +111,7 @@ router.get("/dashboard", async (req, res, next) => {
 
     const availableDevices = await Device.countDocuments({ status: "available" });
     const customerActiveBookings = await Booking.aggregate([
-      { $match: { status: "active", userId: { $ne: null } } },
+      { $match: { status: { $in: ["active", "accepted", "paid"] }, userId: { $ne: null } } },
       {
         $lookup: {
           from: "users",
@@ -123,19 +125,42 @@ router.get("/dashboard", async (req, res, next) => {
       { $count: "total" },
     ]);
     const activeDeviceBookings = customerActiveBookings[0]?.total ?? 0;
-    const activeHookahOrders = await HookahOrder.countDocuments({ status: "active" });
+    const activeHookahOrders = await HookahOrder.countDocuments({ status: { $in: ["active", "accepted", "paid"] } });
     const activeBookings = activeDeviceBookings + activeHookahOrders;
     const revenue = await Payment.aggregate([{ $group: { _id: null, total: { $sum: "$total" } } }]);
 
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(startOfDay);
+    const weekday = (startOfDay.getDay() + 6) % 7;
+    startOfWeek.setDate(startOfDay.getDate() - weekday);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    const sumRevenueSince = async (since) => {
+      const result = await Payment.aggregate([
+        { $match: { paidAt: { $gte: since } } },
+        { $group: { _id: null, total: { $sum: "$total" } } },
+      ]);
+      return result[0]?.total ?? 0;
+    };
+
+    const [dailyRevenue, weeklyRevenue, monthlyRevenue, yearlyRevenue] = await Promise.all([
+      sumRevenueSince(startOfDay),
+      sumRevenueSince(startOfWeek),
+      sumRevenueSince(startOfMonth),
+      sumRevenueSince(startOfYear),
+    ]);
+
     const activeBookingDocs = await Booking.find({
-      status: "active",
+      status: { $in: ["active", "accepted", "paid"] },
       userId: { $ne: null },
     })
       .sort({ createdAt: -1 })
       .limit(20);
 
     const activeHookahDocs = await HookahOrder.find({
-      status: "active",
+      status: { $in: ["active", "accepted", "paid"] },
     })
       .sort({ createdAt: -1 })
       .limit(20);
@@ -207,9 +232,147 @@ router.get("/dashboard", async (req, res, next) => {
         tables,
         flavors,
         totalRevenue: revenue[0]?.total ?? 0,
+        revenue: {
+          daily: dailyRevenue,
+          weekly: weeklyRevenue,
+          monthly: monthlyRevenue,
+          yearly: yearlyRevenue,
+          total: revenue[0]?.total ?? 0,
+        },
       },
       incomingOrders,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/revenue", async (req, res, next) => {
+  try {
+    const { from, to } = req.query ?? {};
+
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+
+    if (fromDate && Number.isNaN(fromDate.getTime())) {
+      return res.status(400).json({ message: "Boshlanish sanasi noto'g'ri" });
+    }
+    if (toDate && Number.isNaN(toDate.getTime())) {
+      return res.status(400).json({ message: "Tugash sanasi noto'g'ri" });
+    }
+
+    const match = {};
+    if (fromDate) {
+      match.$gte = fromDate;
+    }
+    if (toDate) {
+      const inclusiveTo = new Date(toDate);
+      inclusiveTo.setHours(23, 59, 59, 999);
+      match.$lte = inclusiveTo;
+    }
+
+    const pipeline = [];
+    if (Object.keys(match).length) {
+      pipeline.push({ $match: { paidAt: match } });
+    }
+    pipeline.push({ $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } });
+
+    const result = await Payment.aggregate(pipeline);
+
+    res.json({
+      total: result[0]?.total ?? 0,
+      count: result[0]?.count ?? 0,
+      from: fromDate ? fromDate.toISOString() : null,
+      to: toDate ? toDate.toISOString() : null,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Products
+router.get("/products", async (req, res, next) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 });
+    res.json({ products: products.map((product) => product.toJSON()) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/products", async (req, res, next) => {
+  try {
+    const { title, quantity, image } = req.body ?? {};
+
+    if (!title?.trim()) {
+      return res.status(400).json({ message: "Tovar nomi majburiy" });
+    }
+
+    const parsedQuantity = Number(quantity);
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity < 0) {
+      return res.status(400).json({ message: "Tovar soni noto'g'ri" });
+    }
+
+    const product = await Product.create({
+      title: title.trim(),
+      quantity: parsedQuantity,
+      image: image?.trim() || "",
+    });
+
+    syncClub("products", `Yangi tovar: ${product.title}`);
+    res.status(201).json({ product: product.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/products/:id", async (req, res, next) => {
+  try {
+    const { title, quantity, image } = req.body ?? {};
+    const updates = {};
+
+    if (title !== undefined) {
+      if (!title?.trim()) {
+        return res.status(400).json({ message: "Tovar nomi majburiy" });
+      }
+      updates.title = title.trim();
+    }
+
+    if (quantity !== undefined) {
+      const parsedQuantity = Number(quantity);
+      if (!Number.isFinite(parsedQuantity) || parsedQuantity < 0) {
+        return res.status(400).json({ message: "Tovar soni noto'g'ri" });
+      }
+      updates.quantity = parsedQuantity;
+    }
+
+    if (image !== undefined) {
+      updates.image = image?.trim() || "";
+    }
+
+    const product = await Product.findByIdAndUpdate(req.params.id, updates, { new: true });
+
+    if (!product) {
+      return res.status(404).json({ message: "Tovar topilmadi" });
+    }
+
+    syncClub("products", `Tovar yangilandi: ${product.title}`);
+    res.json({ product: product.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/products/:id", async (req, res, next) => {
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ message: "Tovar topilmadi" });
+    }
+
+    syncClub("products", `Tovar o'chirildi: ${product.title}`);
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }
@@ -456,6 +619,29 @@ router.post("/media/table-image", async (req, res, next) => {
     const image = await savePublicImage({
       folder: "hookah",
       fileBaseName: slug,
+      dataUrl,
+    });
+
+    res.json({ image });
+  } catch (error) {
+    if (error.message) {
+      return res.status(400).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+router.post("/media/product-image", async (req, res, next) => {
+  try {
+    const { slug, dataUrl } = req.body ?? {};
+
+    if (!slug || !dataUrl) {
+      return res.status(400).json({ message: "slug va rasm majburiy" });
+    }
+
+    const image = await savePublicImage({
+      folder: "products",
+      fileBaseName: `${slug}-${Date.now()}`,
       dataUrl,
     });
 
@@ -745,54 +931,68 @@ router.patch("/bookings/:id", async (req, res, next) => {
       return res.json({ booking: result.booking.toJSON() });
     }
 
-    const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true, runValidators: true },
-    );
+    const existingBooking = await Booking.findById(req.params.id);
 
-    if (!booking) {
-      const hookahOrder = await HookahOrder.findById(req.params.id);
+    if (existingBooking) {
+      const previousStatus = existingBooking.status;
+      existingBooking.status = status;
+      await existingBooking.save({ validateBeforeSave: true });
 
-      if (!hookahOrder) {
-        return res.status(404).json({ message: "Bron topilmadi" });
+      if (status === "accepted" && previousStatus !== "accepted") {
+        await notifyOrderAccepted(existingBooking.userId, existingBooking.deviceName);
+      }
+
+      if (status === "completed" && previousStatus !== "completed") {
+        await notifyOrderCompleted(existingBooking.userId, existingBooking.deviceName);
       }
 
       if (status === "completed") {
-        const result = await completeHookahOrder(req.params.id);
-        if (!result.ok) {
-          return res.status(400).json({ message: result.message });
+        const device = await releaseDeviceIfIdle(
+          existingBooking.deviceId,
+          existingBooking.deviceName,
+          existingBooking._id,
+        );
+        if (device) {
+          syncClub("devices", `${existingBooking.deviceName} bo'sh`);
         }
-        syncClub("bookings", `Kalyan buyurtmasi yakunlandi: ${result.order.title}`);
-        syncClub("tables", "Stol holati yangilandi");
-        return res.json({ booking: result.order.toJSON() });
       }
 
-      if (status === "cancelled") {
-        const result = await cancelHookahOrder(req.params.id);
-        if (!result.ok) {
-          return res.status(400).json({ message: result.message });
-        }
-        syncClub("bookings", `Kalyan buyurtmasi bekor qilindi: ${result.order.title}`);
-        syncClub("tables", "Stol holati yangilandi");
-        return res.json({ booking: result.order.toJSON() });
-      }
+      syncClub("bookings", `Bron yangilandi: ${existingBooking.deviceName}`);
+      return res.json({ booking: existingBooking.toJSON() });
+    }
 
-      hookahOrder.status = status;
-      await hookahOrder.save();
-      syncClub("bookings", `Kalyan buyurtmasi yangilandi: ${hookahOrder.title}`);
-      return res.json({ booking: hookahOrder.toJSON() });
+    const hookahOrder = await HookahOrder.findById(req.params.id);
+
+    if (!hookahOrder) {
+      return res.status(404).json({ message: "Bron topilmadi" });
     }
 
     if (status === "completed") {
-      const device = await releaseDeviceIfIdle(booking.deviceId, booking.deviceName, booking._id);
-      if (device) {
-        syncClub("devices", `${booking.deviceName} bo'sh`);
+      const previousStatus = hookahOrder.status;
+      const result = await completeHookahOrder(req.params.id);
+      if (!result.ok) {
+        return res.status(400).json({ message: result.message });
       }
+
+      if (previousStatus !== "completed") {
+        await notifyOrderCompleted(hookahOrder.userId, result.order.title);
+      }
+
+      syncClub("bookings", `Kalyan buyurtmasi yakunlandi: ${result.order.title}`);
+      syncClub("tables", "Stol holati yangilandi");
+      return res.json({ booking: result.order.toJSON() });
     }
 
-    syncClub("bookings", `Bron yangilandi: ${booking.deviceName}`);
-    res.json({ booking: booking.toJSON() });
+    const previousStatus = hookahOrder.status;
+    hookahOrder.status = status;
+    await hookahOrder.save();
+
+    if (status === "accepted" && previousStatus !== "accepted") {
+      await notifyOrderAccepted(hookahOrder.userId, hookahOrder.title);
+    }
+
+    syncClub("bookings", `Kalyan buyurtmasi yangilandi: ${hookahOrder.title}`);
+    return res.json({ booking: hookahOrder.toJSON() });
   } catch (error) {
     next(error);
   }

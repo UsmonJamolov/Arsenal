@@ -70,8 +70,9 @@ async function completePaymentIntent(intentId, { externalTransactionId = "", met
 
       if (!booking.userId) {
         booking.userId = intent.userId;
-        await booking.save();
       }
+      booking.status = "paid";
+      await booking.save();
 
       sessions.push({
         id: session._id.toString(),

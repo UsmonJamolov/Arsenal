@@ -1,5 +1,11 @@
+import { Suspense } from "react";
+
 import { AdminApp } from "@/components/admin/admin-app";
 
 export default function AdminPage() {
-  return <AdminApp />;
+  return (
+    <Suspense fallback={null}>
+      <AdminApp />
+    </Suspense>
+  );
 }

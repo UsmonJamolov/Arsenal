@@ -33,6 +33,50 @@ export function getSocket() {
   return socket;
 }
 
+export type OrderAcceptedEvent = {
+  title: string;
+  message: string;
+  at: string;
+};
+
+export function joinUserRoom(userId: string) {
+  const client = getSocket();
+  if (!client || !userId) {
+    return;
+  }
+
+  client.connect();
+  client.emit("join", `user:${userId}`);
+}
+
+export function subscribeOrderCompleted(handler: (event: OrderAcceptedEvent) => void) {
+  const client = getSocket();
+  if (!client) {
+    return () => undefined;
+  }
+
+  client.connect();
+  client.on("order:completed", handler);
+
+  return () => {
+    client.off("order:completed", handler);
+  };
+}
+
+export function subscribeOrderAccepted(handler: (event: OrderAcceptedEvent) => void) {
+  const client = getSocket();
+  if (!client) {
+    return () => undefined;
+  }
+
+  client.connect();
+  client.on("order:accepted", handler);
+
+  return () => {
+    client.off("order:accepted", handler);
+  };
+}
+
 export function subscribeClubUpdates(handler: (event: ClubUpdateEvent) => void) {
   const client = getSocket();
   if (!client) {

@@ -300,7 +300,7 @@ export function getDevicesBookingTotal(
     .reduce((sum, device) => sum + device.pricePerHour * safeDuration, 0);
 }
 
-export type BookingStatus = "active" | "completed" | "cancelled";
+export type BookingStatus = "active" | "accepted" | "paid" | "completed" | "cancelled";
 
 export type Booking = {
   id: string;
@@ -314,7 +314,7 @@ export type Booking = {
   updatedAt?: string;
 };
 
-export type BookingNotificationKind = "booked" | "paid" | "cancelled";
+export type BookingNotificationKind = "booked" | "accepted" | "ready" | "paid" | "cancelled";
 
 export type BookingNotification = {
   id: string;
@@ -326,6 +326,8 @@ export type BookingNotification = {
 
 export const BOOKING_NOTIFICATION_LABEL: Record<BookingNotificationKind, string> = {
   booked: "Bron qildingiz",
+  accepted: "Buyurtma qabul qilindi",
+  ready: "Buyurtmangiz tayyor",
   paid: "To'lov qildingiz",
   cancelled: "Bronni rad qilding",
 };
@@ -352,14 +354,23 @@ export function buildBookingNotifications(
       sortAt: createdAt,
     });
 
-    if (booking.status === "completed") {
-      const paidOrder = paidByBookingId.get(booking.id);
+    if (booking.status === "accepted") {
       notifications.push({
-        id: `${booking.id}-paid`,
-        kind: "paid",
-        title: BOOKING_NOTIFICATION_LABEL.paid,
+        id: `${booking.id}-accepted`,
+        kind: "accepted",
+        title: BOOKING_NOTIFICATION_LABEL.accepted,
         subtitle: booking.deviceName,
-        sortAt: paidOrder ? new Date(paidOrder.paidAt).getTime() : updatedAt,
+        sortAt: updatedAt || createdAt,
+      });
+    }
+
+    if (booking.status === "completed") {
+      notifications.push({
+        id: `${booking.id}-ready`,
+        kind: "ready",
+        title: BOOKING_NOTIFICATION_LABEL.ready,
+        subtitle: booking.deviceName,
+        sortAt: updatedAt || createdAt,
       });
     }
 
@@ -396,6 +407,8 @@ export function buildBookingNotifications(
 
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   active: "Faol",
+  accepted: "Qabul qilindi",
+  paid: "To'landi",
   completed: "Tugallangan",
   cancelled: "Bekor qilingan",
 };

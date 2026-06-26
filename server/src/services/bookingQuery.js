@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const HookahOrder = require("../models/HookahOrder");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
 
@@ -35,7 +36,24 @@ async function listBookingsForUser(userId) {
     unique.push(booking);
   }
 
-  return unique.map((booking) => booking.toJSON());
+  const hookahOrders = await HookahOrder.find({ userId: uid }).sort({ createdAt: -1 });
+
+  const deviceBookings = unique.map((booking) => booking.toJSON());
+  const hookahBookings = hookahOrders.map((order) => ({
+    id: order._id.toString(),
+    deviceId: "hookah",
+    deviceName: order.title,
+    startHour: order.startHour,
+    durationHours: order.quantity,
+    price: order.price,
+    status: order.status,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+  }));
+
+  return [...deviceBookings, ...hookahBookings].sort(
+    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
 }
 
 module.exports = { listBookingsForUser };

@@ -50,7 +50,10 @@ import { apiRequest, setApiUserId } from "@/lib/api";
 import { loadPendingSessions, loadProfileExtras, savePendingSessions } from "@/lib/user-storage";
 import { formatCurrency } from "@/lib/format";
 import {
+  joinUserRoom,
   subscribeClubUpdates,
+  subscribeOrderAccepted,
+  subscribeOrderCompleted,
   trackSocketConnection,
   type LiveStatus,
   type RealtimeEntity,
@@ -247,6 +250,27 @@ export function GameClubApp() {
 
     return () => clearInterval(timer);
   }, [liveStatus, session?.id, loadDevices, loadHookahCatalog, loadBookings, refreshCart]);
+
+  useEffect(() => {
+    if (!session?.id) {
+      return;
+    }
+
+    joinUserRoom(session.id);
+
+    const unsubscribeAccepted = subscribeOrderAccepted(() => {
+      void loadBookings();
+    });
+
+    const unsubscribeCompleted = subscribeOrderCompleted(() => {
+      void loadBookings();
+    });
+
+    return () => {
+      unsubscribeAccepted();
+      unsubscribeCompleted();
+    };
+  }, [session?.id, loadBookings]);
 
   useEffect(() => {
     const shouldRefresh = (entity: RealtimeEntity, targets: RealtimeEntity[]) =>

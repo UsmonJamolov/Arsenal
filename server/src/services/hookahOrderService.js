@@ -29,8 +29,16 @@ async function releaseHookahOrderTables(tableIds) {
 async function completeHookahOrder(orderId) {
   const order = await HookahOrder.findById(orderId);
 
-  if (!order || order.status !== "active") {
+  if (!order) {
     return { ok: false, message: "Kalyan buyurtmasi topilmadi" };
+  }
+
+  if (order.status === "completed") {
+    return { ok: true, order };
+  }
+
+  if (order.status === "cancelled") {
+    return { ok: false, message: "Bekor qilingan buyurtmani yakunlab bo'lmaydi" };
   }
 
   order.status = "completed";

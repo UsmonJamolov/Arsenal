@@ -5,10 +5,11 @@ import {
   ChevronRight,
   Copy,
   Crown,
+  Headset,
   LogOut,
   Mail,
   Phone,
-  Settings,
+  Send,
   ShoppingBag,
   Star,
   Tag,
@@ -93,6 +94,9 @@ async function readAvatarPreview(file: File): Promise<string> {
 const cardClass =
   "rounded-[1.25rem] border border-[var(--au-border)] bg-[var(--au-surface-raised)]";
 
+const SUPPORT_TELEGRAM_URL = "https://t.me/arsenalGC_bot";
+const SUPPORT_PHONE = "+998 90 123 45 67";
+
 export function ProfilePanel({
   session,
   phone,
@@ -114,6 +118,8 @@ export function ProfilePanel({
   const [editingField, setEditingField] = useState<EditField>(null);
   const [historyVisible, setHistoryVisible] = useState(3);
   const [copiedId, setCopiedId] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const supportRef = useRef<HTMLDivElement>(null);
 
   const profileRef = useRef({
     firstName: defaults.firstName,
@@ -225,6 +231,32 @@ export function ProfilePanel({
     fieldsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  useEffect(() => {
+    if (!supportOpen) {
+      return;
+    }
+
+    const handlePointer = (event: MouseEvent) => {
+      if (supportRef.current && !supportRef.current.contains(event.target as Node)) {
+        setSupportOpen(false);
+      }
+    };
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSupportOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [supportOpen]);
+
   return (
     <div className="flex w-full max-w-[430px] flex-col gap-5 pb-2 text-[var(--au-text)]">
       <header className="flex items-start justify-between gap-4">
@@ -232,18 +264,57 @@ export function ProfilePanel({
           <h1 className="m-0 text-[1.75rem] font-bold leading-tight tracking-tight text-[var(--au-text)]">Profil</h1>
           <p className="mt-1.5 text-sm text-[var(--au-muted)]">Shaxsiy ma&apos;lumotlaringiz</p>
         </div>
-        <button
-          type="button"
-          className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-[0.875rem]",
-            cardClass,
-            "text-[var(--au-text-secondary)] transition hover:border-[rgb(227_24_55/0.28)] hover:bg-[var(--au-red-soft)] hover:text-[var(--au-red-bright)]",
-          )}
-          aria-label="Sozlamalar"
-          onClick={scrollToFields}
-        >
-          <Settings className="size-5" />
-        </button>
+        <div className="relative shrink-0" ref={supportRef}>
+          <button
+            type="button"
+            className={cn(
+              "flex size-11 items-center justify-center rounded-[0.875rem]",
+              cardClass,
+              "text-[var(--au-text-secondary)] transition hover:border-[rgb(227_24_55/0.28)] hover:bg-[var(--au-red-soft)] hover:text-[var(--au-red-bright)]",
+              supportOpen && "border-[rgb(227_24_55/0.28)] bg-[var(--au-red-soft)] text-[var(--au-red-bright)]",
+            )}
+            aria-label="Qo'llab-quvvatlash"
+            aria-haspopup="menu"
+            aria-expanded={supportOpen}
+            onClick={() => setSupportOpen((open) => !open)}
+          >
+            <Headset className="size-5" />
+          </button>
+
+          {supportOpen ? (
+            <div
+              role="menu"
+              className={cn(
+                "absolute right-0 top-[calc(100%+0.5rem)] z-20 w-60 overflow-hidden p-1.5",
+                cardClass,
+              )}
+            >
+              <p className="px-3 py-2 text-[0.6875rem] font-extrabold uppercase tracking-wider text-[var(--au-muted)]">
+                Qo&apos;llab-quvvatlash
+              </p>
+              <a
+                href={SUPPORT_TELEGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                role="menuitem"
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--au-text)] transition hover:bg-[var(--au-red-soft)] hover:text-[var(--au-red-bright)]"
+                onClick={() => setSupportOpen(false)}
+              >
+                <Send className="size-4 shrink-0" />
+                Telegram orqali yozish
+              </a>
+              <a
+                href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
+                role="menuitem"
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--au-text)] transition hover:bg-[var(--au-red-soft)] hover:text-[var(--au-red-bright)]"
+                onClick={() => setSupportOpen(false)}
+              >
+                <Phone className="size-4 shrink-0" />
+                {SUPPORT_PHONE}
+              </a>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <div
@@ -495,6 +566,7 @@ function BookingHistoryCard({
           className={cn(
             "m-0 text-[0.625rem] font-extrabold uppercase tracking-wider",
             status === "active" && "text-[var(--au-red-bright)]",
+            status === "paid" && "text-emerald-400",
             status === "completed" && "text-[var(--au-muted)]",
             status === "cancelled" && "text-[var(--au-red-dark)]",
           )}

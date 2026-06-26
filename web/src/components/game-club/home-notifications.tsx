@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, CalendarCheck, CreditCard, X, XCircle } from "lucide-react";
+import { Bell, CalendarCheck, CheckCircle2, CreditCard, PartyPopper, X, XCircle } from "lucide-react";
 
 import {
   buildBookingNotifications,
@@ -22,6 +22,8 @@ const DISMISSED_STORAGE_KEY = "au-booking-notifications-dismissed";
 
 const kindIcon: Record<BookingNotificationKind, typeof CalendarCheck> = {
   booked: CalendarCheck,
+  accepted: CheckCircle2,
+  ready: PartyPopper,
   paid: CreditCard,
   cancelled: XCircle,
 };

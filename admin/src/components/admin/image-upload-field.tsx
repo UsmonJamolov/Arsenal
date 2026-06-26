@@ -41,11 +41,6 @@ export function ImageUploadField({
   }, [value]);
 
   const upload = async (file: File) => {
-    if (!fileBaseName.trim()) {
-      setError("Avval slug yoki nom kiriting");
-      return;
-    }
-
     setUploading(true);
     setError("");
 
@@ -53,9 +48,11 @@ export function ImageUploadField({
       const dataUrl = await compressImageFile(file);
       setInstantPreview(dataUrl);
 
+      const slug = fileBaseName.trim() || `rasm-${Date.now()}`;
+
       const response = await adminUploadRequest<{ image: string }>(uploadPath, {
         method: "POST",
-        body: JSON.stringify({ slug: fileBaseName.trim(), dataUrl }),
+        body: JSON.stringify({ slug, dataUrl }),
       });
       onChange(response.image);
       setPreviewVersion(Date.now());
@@ -94,7 +91,7 @@ export function ImageUploadField({
         <input
           ref={inputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
+          accept="image/*"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -108,7 +105,7 @@ export function ImageUploadField({
           type="button"
           size="sm"
           variant="secondary"
-          disabled={uploading || !fileBaseName.trim()}
+          disabled={uploading}
           onClick={() => inputRef.current?.click()}
         >
           <ImagePlus className="size-3.5" />

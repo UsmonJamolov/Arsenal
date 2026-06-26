@@ -4,30 +4,34 @@ import {
   Armchair,
   ArrowLeft,
   CalendarCheck,
-  Cigarette,
   Gamepad2,
   Inbox,
   LayoutDashboard,
   LogOut,
   Megaphone,
   Monitor,
+  Package,
   RefreshCw,
   Save,
   Settings,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo } from "@/components/brand-logo";
+import { HookahIcon } from "@/components/icons/hookah-icon";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { ProductImageUpload } from "@/components/admin/product-image-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { adminRequest } from "@/lib/admin-api";
+import { resolvePublicAsset } from "@/lib/assets";
 import { clearAdminSession, getAdminSession, type AdminSession } from "@/lib/admin-auth";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import {
@@ -69,6 +73,8 @@ const TABLE_ZONE_OPTIONS = [
   { value: "VIP zona", label: "VIP zona" },
   { value: "Terrasa", label: "Terrasa" },
 ] as const;
+
+const TABLE_ZONES_STORAGE_KEY = "arsenal-admin-table-zones";
 
 const TABLE_STATUS_OPTIONS = [
   { value: "available", label: TABLE_STATUS_LABEL.available },
@@ -130,7 +136,15 @@ function ColoredStatusSelect({
   );
 }
 
-type Tab = "dashboard" | "users" | "devices" | "tables" | "hookah" | "bookings" | "settings";
+type Tab = "dashboard" | "users" | "devices" | "tables" | "hookah" | "products" | "bookings" | "settings";
+
+type RevenueBreakdown = {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  yearly: number;
+  total: number;
+};
 
 type DashboardStats = {
   users: number;
@@ -141,9 +155,10 @@ type DashboardStats = {
   tables: number;
   flavors: number;
   totalRevenue: number;
+  revenue?: RevenueBreakdown;
 };
 
-type UserRow = { id: string; name: string; phone: string; email: string; loyaltyPoints: number; role: string };
+type UserRow = { id: string; name: string; phone: string; email: string; loyaltyPoints: number; role: string; joinedAt?: string };
 type DeviceRow = { id: string; name: string; type: string; pricePerHour: number; status: DeviceStatus };
 type TableRow = {
   id: string;
@@ -166,6 +181,13 @@ type HookahBrandRow = {
   title: string;
   isPremium?: boolean;
   sortOrder?: number;
+};
+type ProductRow = {
+  id: string;
+  title: string;
+  quantity: number;
+  image: string;
+  createdAt: string;
 };
 type BookingRow = {
   id: string;
@@ -220,16 +242,27 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: "users", label: "Foydalanuvchilar", icon: <Users className="size-4" /> },
   { key: "devices", label: "Qurilmalar", icon: <Gamepad2 className="size-4" /> },
   { key: "tables", label: "Stollar", icon: <Armchair className="size-4" /> },
-  { key: "hookah", label: "Kalyan", icon: <Cigarette className="size-4" /> },
+  { key: "hookah", label: "Kalyan", icon: <HookahIcon className="size-4" /> },
+  { key: "products", label: "Tovarlar", icon: <Package className="size-4" /> },
   { key: "bookings", label: "Bronlar", icon: <CalendarCheck className="size-4" /> },
   { key: "settings", label: "Sozlamalar", icon: <Settings className="size-4" /> },
 ];
 
+function isTab(value: string | null): value is Tab {
+  return Boolean(value && TABS.some((item) => item.key === value));
+}
+
+function tabFromParams(params: { get: (key: string) => string | null }): Tab {
+  const value = params.get("tab");
+  return isTab(value) ? value : "dashboard";
+}
+
 export function AdminApp() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [ready, setReady] = useState(false);
   const [admin, setAdmin] = useState<AdminSession | null>(null);
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTab] = useState<Tab>(() => tabFromParams(searchParams));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -240,11 +273,31 @@ export function AdminApp() {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [flavors, setFlavors] = useState<FlavorRow[]>([]);
   const [hookahBrands, setHookahBrands] = useState<HookahBrandRow[]>([]);
+  const [products, setProducts] = useState<ProductRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [notifications, setNotifications] = useState<string[]>([]);
   const [newNotification, setNewNotification] = useState("");
   const loadSeqRef = useRef(0);
+
+  const selectTab = useCallback(
+    (nextTab: Tab) => {
+      setTab(nextTab);
+      const params = new URLSearchParams(window.location.search);
+      if (nextTab === "dashboard") {
+        params.delete("tab");
+      } else {
+        params.set("tab", nextTab);
+      }
+      const query = params.toString();
+      router.replace(query ? `/?${query}` : "/", { scroll: false });
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    setTab(tabFromParams(searchParams));
+  }, [searchParams]);
 
   const loadData = useCallback(async (silent = false) => {
     const seq = ++loadSeqRef.current;
@@ -262,6 +315,7 @@ export function AdminApp() {
         tablesResult,
         hookahResult,
         brandsResult,
+        productsResult,
         bookingsResult,
         settingsResult,
       ] = await Promise.allSettled([
@@ -271,6 +325,7 @@ export function AdminApp() {
         adminRequest<{ tables: TableRow[] }>("/api/admin/tables"),
         adminRequest<{ flavors: FlavorRow[] }>("/api/admin/hookah"),
         adminRequest<{ brands: HookahBrandRow[] }>("/api/admin/hookah-brands"),
+        adminRequest<{ products: ProductRow[] }>("/api/admin/products"),
         adminRequest<{ bookings: BookingRow[] }>("/api/admin/bookings"),
         adminRequest<{ paymentMethods: string[]; notifications: string[] }>("/api/admin/settings"),
       ]);
@@ -317,6 +372,13 @@ export function AdminApp() {
       } else {
         setHookahBrands([]);
         failures.push(brandsResult.reason instanceof Error ? brandsResult.reason.message : "Tabaklar");
+      }
+
+      if (productsResult.status === "fulfilled") {
+        setProducts(productsResult.value.products);
+      } else {
+        setProducts([]);
+        failures.push(productsResult.reason instanceof Error ? productsResult.reason.message : "Tovarlar");
       }
 
       if (bookingsResult.status === "fulfilled") {
@@ -413,7 +475,7 @@ export function AdminApp() {
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setTab(item.key)}
+                onClick={() => selectTab(item.key)}
                 className={cn(
                   "shrink-0 rounded-lg px-3 py-2 text-xs font-semibold",
                   tab === item.key ? "bg-brand-gold-dim text-brand-gold" : "bg-arena-overlay/50 text-text-muted",
@@ -440,7 +502,7 @@ export function AdminApp() {
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setTab(item.key)}
+                onClick={() => selectTab(item.key)}
                 className={cn(
                   "flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition",
                   tab === item.key
@@ -490,7 +552,7 @@ export function AdminApp() {
 
           <div className="admin-panel-scroll">
           {tab === "dashboard" && stats ? (
-            <DashboardPanel stats={stats} incomingOrders={incomingOrders} />
+            <DashboardPanel stats={stats} incomingOrders={incomingOrders} onRefresh={loadData} />
           ) : null}
           {tab === "dashboard" && !stats && !loading ? (
             <p className="rounded-xl border border-amber-500/30 bg-[#221c42] px-4 py-6 text-violet-100/80">
@@ -518,6 +580,7 @@ export function AdminApp() {
               }}
             />
           ) : null}
+          {tab === "products" ? <ProductsPanel products={products} onRefresh={loadData} /> : null}
           {tab === "bookings" ? <BookingsPanel bookings={bookings} onRefresh={loadData} /> : null}
           {tab === "settings" ? (
             <SettingsPanel
@@ -538,10 +601,33 @@ export function AdminApp() {
 function DashboardPanel({
   stats,
   incomingOrders,
+  onRefresh,
 }: {
   stats: DashboardStats;
   incomingOrders: IncomingOrderRow[];
+  onRefresh: () => void;
 }) {
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const updateOrderStatus = async (id: string, status: "accepted" | "completed") => {
+    setUpdatingId(id);
+    try {
+      await adminRequest(`/api/admin/bookings/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      onRefresh();
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const orderStatusLabel = (status: string) => {
+    if (status === "accepted") return "Qabul qilindi";
+    if (status === "paid") return "To'landi";
+    if (status === "active") return "Yangi";
+    return status;
+  };
   const cards = [
     { label: "Foydalanuvchilar", value: stats.users },
     { label: "Qurilmalar", value: `${stats.availableDevices}/${stats.devices}` },
@@ -549,8 +635,66 @@ function DashboardPanel({
     { label: "Faol bronlar", value: stats.activeBookings },
     { label: "Stollar", value: stats.tables },
     { label: "Kalyan ta'mlari", value: stats.flavors },
-    { label: "Jami daromad", value: formatCurrency(stats.totalRevenue) },
   ];
+
+  const revenue: RevenueBreakdown = stats.revenue ?? {
+    daily: 0,
+    weekly: 0,
+    monthly: 0,
+    yearly: 0,
+    total: stats.totalRevenue,
+  };
+
+  const revenuePeriods: { id: keyof RevenueBreakdown; label: string }[] = [
+    { id: "daily", label: "Kunlik" },
+    { id: "weekly", label: "Haftalik" },
+    { id: "monthly", label: "Oylik" },
+    { id: "yearly", label: "Yillik" },
+    { id: "total", label: "Jami" },
+  ];
+
+  const [revenuePeriod, setRevenuePeriod] = useState<keyof RevenueBreakdown>("daily");
+
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
+  const [rangeResult, setRangeResult] = useState<{ total: number; count: number } | null>(null);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(null);
+
+  const loadRangeRevenue = async () => {
+    if (!rangeFrom && !rangeTo) {
+      setRangeError("Kamida bitta sana tanlang");
+      return;
+    }
+    if (rangeFrom && rangeTo && rangeFrom > rangeTo) {
+      setRangeError("Boshlanish sanasi tugash sanasidan keyin bo'lmasin");
+      return;
+    }
+
+    setRangeError(null);
+    setRangeLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (rangeFrom) params.set("from", rangeFrom);
+      if (rangeTo) params.set("to", rangeTo);
+      const data = await adminRequest<{ total: number; count: number }>(
+        `/api/admin/revenue?${params.toString()}`,
+      );
+      setRangeResult({ total: data.total, count: data.count });
+    } catch (error) {
+      setRangeError(error instanceof Error ? error.message : "Hisobotni yuklab bo'lmadi");
+      setRangeResult(null);
+    } finally {
+      setRangeLoading(false);
+    }
+  };
+
+  const resetRange = () => {
+    setRangeFrom("");
+    setRangeTo("");
+    setRangeResult(null);
+    setRangeError(null);
+  };
 
   return (
     <div className="space-y-5">
@@ -564,6 +708,77 @@ function DashboardPanel({
           </AdminCard>
         ))}
       </div>
+
+      <AdminCard>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+          <div>
+            <CardDescription>Daromad hisoboti</CardDescription>
+            <CardTitle className="text-3xl text-amber-50">
+              {formatCurrency(revenue[revenuePeriod])}
+            </CardTitle>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {revenuePeriods.map((period) => (
+              <Button
+                key={period.id}
+                type="button"
+                size="sm"
+                variant={revenuePeriod === period.id ? "default" : "secondary"}
+                onClick={() => setRevenuePeriod(period.id)}
+              >
+                {period.label}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 border-t border-white/5 pt-4">
+          <CardDescription>Sana oralig&apos;i bo&apos;yicha hisobot</CardDescription>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs text-text-muted">
+              Boshlanish
+              <Input
+                type="date"
+                value={rangeFrom}
+                max={rangeTo || undefined}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                className="w-44"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-text-muted">
+              Tugash
+              <Input
+                type="date"
+                value={rangeTo}
+                min={rangeFrom || undefined}
+                onChange={(e) => setRangeTo(e.target.value)}
+                className="w-44"
+              />
+            </label>
+            <Button type="button" onClick={loadRangeRevenue} disabled={rangeLoading}>
+              {rangeLoading ? "Yuklanmoqda..." : "Hisoblash"}
+            </Button>
+            {(rangeFrom || rangeTo || rangeResult) && (
+              <Button type="button" variant="ghost" onClick={resetRange} disabled={rangeLoading}>
+                Tozalash
+              </Button>
+            )}
+          </div>
+          {rangeError ? (
+            <p className="text-sm text-rose-300">{rangeError}</p>
+          ) : null}
+          {rangeResult ? (
+            <div className="rounded-xl border border-brand-gold/20 bg-arena-overlay/50 px-4 py-3">
+              <p className="text-sm text-text-muted">
+                {rangeFrom || "boshidan"} — {rangeTo || "hozirgacha"} oralig&apos;ida
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-brand-gold">
+                {formatCurrency(rangeResult.total)}
+              </p>
+              <p className="mt-1 text-xs text-text-faint">{rangeResult.count} ta to&apos;lov</p>
+            </div>
+          ) : null}
+        </CardContent>
+      </AdminCard>
 
       <AdminCard>
         <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
@@ -600,7 +815,9 @@ function DashboardPanel({
                     >
                       {order.type === "hookah" ? "Kalyan" : "Bron"}
                     </Badge>
-                    <Badge className="border-amber-400/40 bg-amber-500/15 text-amber-200">Faol</Badge>
+                    <Badge className="border-amber-400/40 bg-amber-500/15 text-amber-200">
+                      {orderStatusLabel(order.status)}
+                    </Badge>
                   </div>
                   <p className="font-semibold text-text-primary">{order.title}</p>
                   <p className="mt-1 text-sm text-text-muted">
@@ -613,6 +830,29 @@ function DashboardPanel({
                       : ` · ${order.durationHours} soat`}{" "}
                     · Qabul qilindi: {formatDateTime(order.createdAt)}
                   </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={
+                        updatingId === order.id ||
+                        order.status === "accepted" ||
+                        order.status === "completed"
+                      }
+                      onClick={() => updateOrderStatus(order.id, "accepted")}
+                    >
+                      Qabul qilindi
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={updatingId === order.id || order.status === "completed"}
+                      onClick={() => updateOrderStatus(order.id, "completed")}
+                    >
+                      Bajarildi
+                    </Button>
+                  </div>
                 </div>
                 <p className="shrink-0 text-lg font-bold tabular-nums text-brand-gold">{formatCurrency(order.price)}</p>
               </div>
@@ -620,6 +860,143 @@ function DashboardPanel({
           )}
         </CardContent>
       </AdminCard>
+    </div>
+  );
+}
+
+function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefresh: () => void }) {
+  const [form, setForm] = useState({ title: "", quantity: "1", image: "" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const totalQuantity = useMemo(
+    () => products.reduce((sum, product) => sum + product.quantity, 0),
+    [products],
+  );
+
+  const createProduct = async () => {
+    if (!form.title.trim()) {
+      setError("Tovar nomini kiriting");
+      return;
+    }
+
+    const quantity = Number(form.quantity);
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      setError("Tovar soni noto'g'ri");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      await adminRequest("/api/admin/products", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.title.trim(),
+          quantity,
+          image: form.image,
+        }),
+      });
+      setForm({ title: "", quantity: "1", image: "" });
+      onRefresh();
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Tovar qo'shib bo'lmadi");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    if (!confirm("Tovarni o'chirasizmi?")) return;
+    await adminRequest(`/api/admin/products/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminCard>
+          <CardHeader>
+            <CardDescription>Jami tovarlar</CardDescription>
+            <CardTitle className="text-3xl text-amber-50">{products.length}</CardTitle>
+          </CardHeader>
+        </AdminCard>
+        <AdminCard>
+          <CardHeader>
+            <CardDescription>Umumiy soni</CardDescription>
+            <CardTitle className="text-3xl text-amber-50">{totalQuantity}</CardTitle>
+          </CardHeader>
+        </AdminCard>
+      </div>
+
+      <AdminCard>
+        <CardHeader>
+          <CardTitle>Yangi tovar</CardTitle>
+          <CardDescription>Nomi, soni va rasmni kiriting. Rasmni telefondan ham qo&apos;shish mumkin.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
+              Tovar nomi *
+              <Input
+                placeholder="Masalan: Coca-Cola 0.5L"
+                value={form.title}
+                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
+              Soni *
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={form.quantity}
+                onChange={(e) => setForm((prev) => ({ ...prev, quantity: e.target.value }))}
+              />
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm text-text-muted">Tovar rasmi</p>
+            <ProductImageUpload
+              value={form.image}
+              fileName={form.title}
+              onChange={(image) => setForm((prev) => ({ ...prev, image }))}
+              disabled={saving}
+            />
+          </div>
+
+          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+
+          <Button type="button" onClick={createProduct} disabled={saving}>
+            {saving ? "Saqlanmoqda..." : "Tovarni qo'shish"}
+          </Button>
+        </CardContent>
+      </AdminCard>
+
+      <AdminTable
+        title="Tovarlar ro'yxati"
+        headers={["Rasm", "Nomi", "Soni", "Qo'shilgan", ""]}
+        rows={products.map((product) => [
+          product.image ? (
+            <img
+              key={`${product.id}-image`}
+              src={resolvePublicAsset(product.image)}
+              alt=""
+              className="size-12 rounded-lg border border-brand-gold/20 object-cover"
+            />
+          ) : (
+            <span key={`${product.id}-image`} className="text-text-faint">—</span>
+          ),
+          product.title,
+          product.quantity,
+          formatDateTime(product.createdAt),
+          <Button key={product.id} type="button" size="sm" variant="secondary" onClick={() => deleteProduct(product.id)}>
+            <Trash2 className="size-3" />
+          </Button>,
+        ])}
+      />
     </div>
   );
 }
@@ -634,12 +1011,13 @@ function UsersPanel({ users, onRefresh }: { users: UserRow[]; onRefresh: () => v
   return (
     <AdminTable
       title="Foydalanuvchilar"
-      headers={["Ism", "Telefon", "Email", "Rol", ""]}
+      headers={["Ism", "Telefon", "Email", "Rol", "Ro'yxatdan o'tgan", ""]}
       rows={users.map((user) => [
         user.name,
         user.phone,
         user.email,
         user.role,
+        user.joinedAt ? formatDateTime(user.joinedAt) : "—",
         <Button key={user.id} type="button" size="sm" variant="secondary" onClick={() => deleteUser(user.id)}>
           <Trash2 className="size-3" />
         </Button>,
@@ -805,6 +1183,86 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
   });
   const [drafts, setDrafts] = useState<Record<string, TableRow>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [customZones, setCustomZones] = useState<string[]>([]);
+  const [newZone, setNewZone] = useState("");
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(TABLE_ZONES_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setCustomZones(parsed.filter((zone): zone is string => typeof zone === "string"));
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  const zoneOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: { value: string; label: string }[] = [];
+
+    for (const option of TABLE_ZONE_OPTIONS) {
+      if (!seen.has(option.value)) {
+        seen.add(option.value);
+        options.push({ value: option.value, label: option.label });
+      }
+    }
+
+    for (const zone of customZones) {
+      const value = zone.trim();
+      if (value && !seen.has(value)) {
+        seen.add(value);
+        options.push({ value, label: value });
+      }
+    }
+
+    for (const table of tables) {
+      const value = table.zone?.trim();
+      if (value && !seen.has(value)) {
+        seen.add(value);
+        options.push({ value, label: value });
+      }
+    }
+
+    return options;
+  }, [customZones, tables]);
+
+  const addZone = () => {
+    const value = newZone.trim();
+    if (!value) {
+      return;
+    }
+
+    if (zoneOptions.some((option) => option.value.toLowerCase() === value.toLowerCase())) {
+      alert("Bu kategoriya allaqachon mavjud");
+      return;
+    }
+
+    const nextZones = [...customZones, value];
+    setCustomZones(nextZones);
+    setNewZone("");
+    setForm((prev) => ({ ...prev, zone: value }));
+
+    try {
+      window.localStorage.setItem(TABLE_ZONES_STORAGE_KEY, JSON.stringify(nextZones));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const removeZone = (value: string) => {
+    const nextZones = customZones.filter((zone) => zone !== value);
+    setCustomZones(nextZones);
+
+    try {
+      window.localStorage.setItem(TABLE_ZONES_STORAGE_KEY, JSON.stringify(nextZones));
+    } catch {
+      // ignore storage errors
+    }
+  };
 
   useEffect(() => {
     setDrafts((prev) =>
@@ -921,7 +1379,7 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
             className="h-9 font-bold text-white scheme-dark"
             aria-label="Zona"
           >
-            {TABLE_ZONE_OPTIONS.map((option) => (
+            {zoneOptions.map((option) => (
               <option key={option.value} value={option.value} className="bg-[#181425] text-white">
                 {option.label}
               </option>
@@ -939,6 +1397,55 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
           <Button type="button" onClick={addTable}>
             Stol qo&apos;shish
           </Button>
+        </CardContent>
+      </AdminCard>
+
+      <AdminCard>
+        <CardHeader>
+          <CardTitle>Zona kategoriyalari</CardTitle>
+          <CardDescription>Stollar uchun yangi zona kategoriyasini qo&apos;shing</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {zoneOptions.map((option) => {
+              const isCustom = customZones.includes(option.value);
+              return (
+                <span
+                  key={option.value}
+                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-white"
+                >
+                  {option.label}
+                  {isCustom ? (
+                    <button
+                      type="button"
+                      onClick={() => removeZone(option.value)}
+                      className="ml-1 rounded-full p-0.5 text-white/50 transition hover:bg-white/10 hover:text-rose-300"
+                      aria-label={`${option.label} kategoriyasini o'chirish`}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  ) : null}
+                </span>
+              );
+            })}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              placeholder="Yangi kategoriya nomi"
+              value={newZone}
+              onChange={(e) => setNewZone(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addZone();
+                }
+              }}
+              className="sm:max-w-xs"
+            />
+            <Button type="button" variant="secondary" onClick={addZone} disabled={!newZone.trim()}>
+              Kategoriya qo&apos;shish
+            </Button>
+          </div>
         </CardContent>
       </AdminCard>
 
@@ -980,7 +1487,7 @@ function TablesPanel({ tables, onRefresh }: { tables: TableRow[]; onRefresh: () 
               onChange={(e) => patchDraft(table.id, { zone: e.target.value })}
               className="h-9 min-w-[130px] font-bold text-white scheme-dark"
             >
-              {TABLE_ZONE_OPTIONS.map((option) => (
+              {zoneOptions.map((option) => (
                 <option key={option.value} value={option.value} className="bg-[#181425] text-white">
                   {option.label}
                 </option>
@@ -1464,7 +1971,9 @@ function BookingsPanel({ bookings, onRefresh }: { bookings: BookingRow[]; onRefr
           booking.kind === "hookah" ? `${booking.durationHours} kalyan` : `${booking.durationHours} soat`,
           formatCurrency(booking.price),
           <Select key={`${booking.id}-s`} value={booking.status} onChange={(e) => updateStatus(booking.id, e.target.value)} className="h-9">
-            <option value="active">Faol</option>
+            <option value="active">Yangi</option>
+            <option value="accepted">Qabul qilindi</option>
+            <option value="paid">To&apos;landi</option>
             <option value="completed">Yakunlangan</option>
             <option value="cancelled">Bekor</option>
           </Select>,
@@ -1550,8 +2059,8 @@ function SettingsPanel({
             </Button>
           </div>
           <ul className="space-y-2 text-sm text-violet-100/80">
-            {notifications.map((note) => (
-              <li key={note} className="rounded-lg border border-violet-500/25 bg-white/5 px-3 py-2">
+            {notifications.map((note, index) => (
+              <li key={`${index}-${note}`} className="rounded-lg border border-violet-500/25 bg-white/5 px-3 py-2">
                 {note}
               </li>
             ))}

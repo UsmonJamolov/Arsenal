@@ -25,6 +25,10 @@ function initRealtime(httpServer) {
       if (room === "admin" || room === "client") {
         socket.join(room);
       }
+
+      if (typeof room === "string" && room.startsWith("user:")) {
+        socket.join(room);
+      }
     });
   });
 
@@ -40,4 +44,12 @@ function broadcastUpdate(payload) {
   io.to("club").emit("club:update", payload);
 }
 
-module.exports = { initRealtime, broadcastUpdate };
+function emitToUser(userId, event, payload) {
+  if (!io || !userId) {
+    return;
+  }
+
+  io.to(`user:${userId}`).emit(event, payload);
+}
+
+module.exports = { initRealtime, broadcastUpdate, emitToUser };

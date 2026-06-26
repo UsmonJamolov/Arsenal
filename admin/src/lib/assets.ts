@@ -38,15 +38,36 @@ function loadImage(src: string) {
   });
 }
 
+function isHeicFile(file: File) {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    type.includes("heic") ||
+    type.includes("heif") ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
+
 export async function compressImageFile(file: File, maxDimension = 1280) {
-  if (!file.type.startsWith("image/")) {
+  if (file.type && !file.type.startsWith("image/")) {
     throw new Error("Faqat rasm fayllari qabul qilinadi");
   }
 
   const objectUrl = URL.createObjectURL(file);
 
   try {
-    const image = await loadImage(objectUrl);
+    let image: HTMLImageElement;
+    try {
+      image = await loadImage(objectUrl);
+    } catch (loadError) {
+      if (isHeicFile(file)) {
+        throw new Error(
+          "Bu iPhone (HEIC) rasmi. Iltimos kameradan oling yoki JPG/PNG formatdagi rasm tanlang.",
+        );
+      }
+      throw loadError instanceof Error ? loadError : new Error("Rasmni o'qib bo'lmadi");
+    }
     const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
     const width = Math.max(1, Math.round(image.width * scale));
     const height = Math.max(1, Math.round(image.height * scale));
