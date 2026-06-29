@@ -31,6 +31,24 @@
   font-size: 1rem;
   color: var(--au-muted);
   padding: 2rem 0;
+  text-align: center;
+}
+
+.hookah-zone__empty--error {
+  color: rgb(251 113 133);
+  padding-bottom: 0.75rem;
+}
+
+.hookah-zone__retry {
+  display: block;
+  margin: 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgb(227 24 55 / 0.35);
+  background: rgb(227 24 55 / 0.12);
+  color: rgb(255 120 140);
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 /* ── Header stack (hero + time panel) ── */

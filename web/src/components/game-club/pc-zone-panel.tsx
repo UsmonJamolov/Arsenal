@@ -39,6 +39,7 @@ type PcZonePanelProps = {
   setDurationHours: (value: number) => void;
   setStartHour: (value: string) => void;
   onCreateBooking: () => void;
+  onOpenExtras?: () => void;
 };
 
 export function PcZonePanel({
@@ -55,6 +56,7 @@ export function PcZonePanel({
   setDurationHours,
   setStartHour,
   onCreateBooking,
+  onOpenExtras,
 }: PcZonePanelProps) {
   const reduced = useReducedMotion() ?? false;
   const selectedDevices = devices.filter((device) => selectedDeviceIds.includes(device.id));
@@ -232,6 +234,11 @@ export function PcZonePanel({
               {bookingLoading ? "Bron qilinmoqda..." : "Bron qilish"}
               <ChevronRight className="size-5" />
             </button>
+            {onOpenExtras ? (
+              <button type="button" className="zone-extras-link" onClick={onOpenExtras}>
+                Qo&apos;shimchalar buyurtma qilish
+              </button>
+            ) : null}
             {bookingError ? <p className="mt-2 text-center text-sm font-medium text-[#e9335f]">{bookingError}</p> : null}
           </motion.div>
         )}

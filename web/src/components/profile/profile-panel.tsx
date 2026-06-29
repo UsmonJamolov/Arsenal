@@ -11,8 +11,6 @@ import {
   Phone,
   Send,
   ShoppingBag,
-  Star,
-  Tag,
   User,
   Users,
   Wallet,
@@ -20,7 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { setApiUserId } from "@/lib/api";
+import { apiRequest, setApiUserId } from "@/lib/api";
 import { clearSession, getInitials, type UserSession } from "@/lib/auth";
 import {
   BOOKING_STATUS_LABEL,
@@ -94,8 +92,8 @@ async function readAvatarPreview(file: File): Promise<string> {
 const cardClass =
   "rounded-[1.25rem] border border-[var(--au-border)] bg-[var(--au-surface-raised)]";
 
-const SUPPORT_TELEGRAM_URL = "https://t.me/arsenalGC_bot";
-const SUPPORT_PHONE = "+998 90 123 45 67";
+const DEFAULT_SUPPORT_TELEGRAM_URL = "https://t.me/arsenal_union_bot";
+const DEFAULT_SUPPORT_PHONE = "+998 90 123 45 67";
 
 export function ProfilePanel({
   session,
@@ -119,7 +117,29 @@ export function ProfilePanel({
   const [historyVisible, setHistoryVisible] = useState(3);
   const [copiedId, setCopiedId] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [supportPhone, setSupportPhone] = useState(DEFAULT_SUPPORT_PHONE);
+  const [supportTelegramUrl, setSupportTelegramUrl] = useState(DEFAULT_SUPPORT_TELEGRAM_URL);
   const supportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    apiRequest<{ phone?: string; telegramUrl?: string }>("/api/catalog/support")
+      .then((data) => {
+        if (!active) {
+          return;
+        }
+        if (data.phone) {
+          setSupportPhone(data.phone);
+        }
+        if (data.telegramUrl) {
+          setSupportTelegramUrl(data.telegramUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const profileRef = useRef({
     firstName: defaults.firstName,
@@ -189,7 +209,6 @@ export function ProfilePanel({
 
   const totalSpent = useMemo(() => paidOrders.reduce((sum, order) => sum + order.price, 0), [paidOrders]);
   const totalOrders = historyEntries.length;
-  const activeDiscounts = Math.min(2, Math.floor(session.loyaltyPoints / 60));
 
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -293,7 +312,7 @@ export function ProfilePanel({
                 Qo&apos;llab-quvvatlash
               </p>
               <a
-                href={SUPPORT_TELEGRAM_URL}
+                href={supportTelegramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 role="menuitem"
@@ -304,13 +323,13 @@ export function ProfilePanel({
                 Telegram orqali yozish
               </a>
               <a
-                href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
+                href={`tel:${supportPhone.replace(/\s/g, "")}`}
                 role="menuitem"
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--au-text)] transition hover:bg-[var(--au-red-soft)] hover:text-[var(--au-red-bright)]"
                 onClick={() => setSupportOpen(false)}
               >
                 <Phone className="size-4 shrink-0" />
-                {SUPPORT_PHONE}
+                {supportPhone}
               </a>
             </div>
           ) : null}
@@ -468,11 +487,9 @@ export function ProfilePanel({
         </div>
       </section>
 
-      <section className={cn("grid grid-cols-4 gap-2 px-2 py-3.5 max-[380px]:grid-cols-2 max-[380px]:gap-3", cardClass)} aria-label="Statistika">
+      <section className={cn("grid grid-cols-2 gap-2 px-2 py-3.5 max-[380px]:gap-3", cardClass)} aria-label="Statistika">
         <StatItem icon={<Wallet className="size-4" />} value={formatCurrency(totalSpent).replace(" UZS", "")} label="Jami sarflangan" />
         <StatItem icon={<ShoppingBag className="size-4" />} value={String(totalOrders)} label="Jami buyurtma" />
-        <StatItem icon={<Star className="size-4" />} value={String(session.loyaltyPoints)} label="Ballar" />
-        <StatItem icon={<Tag className="size-4" />} value={String(activeDiscounts)} label="Aktiv chegirmalar" />
       </section>
 
       <button

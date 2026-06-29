@@ -479,6 +479,36 @@
   background: linear-gradient(90deg, var(--au-red-dark), var(--au-red));
 }
 
+.zone-extras-link {
+  display: block;
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--au-muted);
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.zone-extras-link:hover {
+  color: var(--au-red-bright);
+}
+
+.zone-extras-link--hookah {
+  margin-top: 0.5rem;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.zone-extras-link--hookah:hover {
+  color: #f472b6;
+}
+
 .zone-panel-back {
   color: var(--au-text) !important;
 }

@@ -51,6 +51,9 @@ type HookahZonePanelProps = {
   brands: HookahBrand[];
   tables: ClubTable[];
   loading: boolean;
+  catalogLoading?: boolean;
+  catalogError?: string | null;
+  onRetryCatalog?: () => void;
   selectedFlavorIds: string[];
   selectedTableIds: string[];
   startHour: string;
@@ -63,6 +66,7 @@ type HookahZonePanelProps = {
   hookahMixes: HookahFlavorMix[];
   onMixPercentChange: (hookahIndex: number, flavorId: string, value: number) => void;
   onAddHookah: () => void;
+  onOpenExtras?: () => void;
 };
 
 function normalizeHookahTime(value: string) {
@@ -160,7 +164,11 @@ export function HookahZonePanel({
   brands,
   tables,
   loading,
+  catalogLoading = false,
+  catalogError = null,
+  onRetryCatalog,
   onAddHookah,
+  onOpenExtras,
   selectedFlavorIds,
   selectedTableIds,
   startHour,
@@ -186,6 +194,27 @@ export function HookahZonePanel({
       hookahQuantity >= 1 &&
       mixesValid,
   );
+
+  if (catalogLoading) {
+    return (
+      <div className="hookah-zone">
+        <p className="hookah-zone__empty">Kalyan katalogi yuklanmoqda...</p>
+      </div>
+    );
+  }
+
+  if (catalogError) {
+    return (
+      <div className="hookah-zone">
+        <p className="hookah-zone__empty hookah-zone__empty--error">{catalogError}</p>
+        {onRetryCatalog ? (
+          <button type="button" className="hookah-zone__retry" onClick={onRetryCatalog}>
+            Qayta yuklash
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   if (!flavors.length || !tables.length) {
     return (
@@ -449,6 +478,11 @@ export function HookahZonePanel({
           <span>{loading ? "Qo'shilmoqda..." : "Buyurtma berish"}</span>
           <ChevronRight className="size-5" strokeWidth={2.5} />
         </button>
+        {onOpenExtras ? (
+          <button type="button" className="zone-extras-link zone-extras-link--hookah" onClick={onOpenExtras}>
+            Qo&apos;shimchalar buyurtma qilish
+          </button>
+        ) : null}
       </motion.div>
     </motion.div>
   );

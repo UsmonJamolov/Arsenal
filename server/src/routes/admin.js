@@ -302,7 +302,7 @@ router.get("/products", async (req, res, next) => {
 
 router.post("/products", async (req, res, next) => {
   try {
-    const { title, quantity, image } = req.body ?? {};
+    const { title, description, quantity, image, price } = req.body ?? {};
 
     if (!title?.trim()) {
       return res.status(400).json({ message: "Tovar nomi majburiy" });
@@ -313,9 +313,16 @@ router.post("/products", async (req, res, next) => {
       return res.status(400).json({ message: "Tovar soni noto'g'ri" });
     }
 
+    const parsedPrice = Number(price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      return res.status(400).json({ message: "Tovar narxi noto'g'ri" });
+    }
+
     const product = await Product.create({
       title: title.trim(),
+      description: description?.trim() || "",
       quantity: parsedQuantity,
+      price: parsedPrice,
       image: image?.trim() || "",
     });
 
@@ -328,7 +335,7 @@ router.post("/products", async (req, res, next) => {
 
 router.patch("/products/:id", async (req, res, next) => {
   try {
-    const { title, quantity, image } = req.body ?? {};
+    const { title, description, quantity, image, price } = req.body ?? {};
     const updates = {};
 
     if (title !== undefined) {
@@ -338,12 +345,24 @@ router.patch("/products/:id", async (req, res, next) => {
       updates.title = title.trim();
     }
 
+    if (description !== undefined) {
+      updates.description = description?.trim() || "";
+    }
+
     if (quantity !== undefined) {
       const parsedQuantity = Number(quantity);
       if (!Number.isFinite(parsedQuantity) || parsedQuantity < 0) {
         return res.status(400).json({ message: "Tovar soni noto'g'ri" });
       }
       updates.quantity = parsedQuantity;
+    }
+
+    if (price !== undefined) {
+      const parsedPrice = Number(price);
+      if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+        return res.status(400).json({ message: "Tovar narxi noto'g'ri" });
+      }
+      updates.price = parsedPrice;
     }
 
     if (image !== undefined) {
@@ -440,7 +459,7 @@ router.get("/devices", async (req, res, next) => {
 
 router.post("/devices", async (req, res, next) => {
   try {
-    const { slug, name, type, pricePerHour, status } = req.body ?? {};
+    const { slug, name, type, pricePerHour, status, area } = req.body ?? {};
 
     if (!name || !type || pricePerHour === undefined) {
       return res.status(400).json({ message: "name, type, pricePerHour majburiy" });
@@ -452,6 +471,7 @@ router.post("/devices", async (req, res, next) => {
       type: type.trim(),
       pricePerHour: Number(pricePerHour),
       status: status || "available",
+      area: area === "kabina" ? "kabina" : "zal",
     });
 
     syncClub("devices", `Yangi qurilma: ${device.name}`);
@@ -466,13 +486,14 @@ router.post("/devices", async (req, res, next) => {
 
 router.patch("/devices/:id", async (req, res, next) => {
   try {
-    const { name, type, pricePerHour, status } = req.body ?? {};
+    const { name, type, pricePerHour, status, area } = req.body ?? {};
     const updates = {};
 
     if (name !== undefined) updates.name = String(name).trim();
     if (type !== undefined) updates.type = String(type).trim();
     if (pricePerHour !== undefined) updates.pricePerHour = Number(pricePerHour);
     if (status !== undefined) updates.status = status;
+    if (area !== undefined) updates.area = area === "kabina" ? "kabina" : "zal";
 
     const device = await Device.findOneAndUpdate({ slug: req.params.id }, updates, {
       new: true,
@@ -666,7 +687,7 @@ router.get("/hookah-brands", async (req, res, next) => {
 
 router.post("/hookah-brands", async (req, res, next) => {
   try {
-    const { title, slug, isPremium, sortOrder } = req.body ?? {};
+    const { title, slug, sortOrder } = req.body ?? {};
 
     if (!title?.trim()) {
       return res.status(400).json({ message: "Tabak nomi majburiy" });
@@ -680,7 +701,6 @@ router.post("/hookah-brands", async (req, res, next) => {
     const brand = await HookahBrand.create({
       slug: slug?.trim() || slugify(title),
       title: title.trim(),
-      isPremium: Boolean(isPremium),
       sortOrder: nextSortOrder,
     });
 
@@ -702,7 +722,7 @@ async function updateHookahBrand(req, res, next) {
       return res.status(404).json({ message: "Tabak topilmadi" });
     }
 
-    const { title, slug, isPremium, sortOrder } = req.body ?? {};
+    const { title, slug, sortOrder } = req.body ?? {};
     const updates = {};
 
     if (title !== undefined) {
@@ -711,10 +731,6 @@ async function updateHookahBrand(req, res, next) {
         return res.status(400).json({ message: "Tabak nomi bo'sh bo'lmasligi kerak" });
       }
       updates.title = nextTitle;
-    }
-
-    if (isPremium !== undefined) {
-      updates.isPremium = Boolean(isPremium);
     }
 
     if (sortOrder !== undefined) {
@@ -1049,6 +1065,8 @@ router.get("/settings", async (req, res, next) => {
     const settings = await getSettings();
     res.json({
       paymentMethods: settings.paymentMethods,
+      supportPhone: settings.supportPhone,
+      supportTelegramUrl: settings.supportTelegramUrl,
       notifications: settings.notifications,
     });
   } catch (error) {
@@ -1058,11 +1076,19 @@ router.get("/settings", async (req, res, next) => {
 
 router.patch("/settings", async (req, res, next) => {
   try {
-    const { paymentMethods, notifications } = req.body ?? {};
+    const { paymentMethods, notifications, supportPhone, supportTelegramUrl } = req.body ?? {};
     const settings = await getSettings();
 
     if (paymentMethods !== undefined) {
       settings.paymentMethods = paymentMethods;
+    }
+
+    if (supportPhone !== undefined) {
+      settings.supportPhone = String(supportPhone).trim();
+    }
+
+    if (supportTelegramUrl !== undefined) {
+      settings.supportTelegramUrl = String(supportTelegramUrl).trim();
     }
 
     if (notifications !== undefined) {
@@ -1073,6 +1099,8 @@ router.patch("/settings", async (req, res, next) => {
     syncClub("settings", "Sozlamalar yangilandi");
     res.json({
       paymentMethods: settings.paymentMethods,
+      supportPhone: settings.supportPhone,
+      supportTelegramUrl: settings.supportTelegramUrl,
       notifications: settings.notifications,
     });
   } catch (error) {

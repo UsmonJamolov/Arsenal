@@ -117,7 +117,7 @@ export function AuthShell() {
             </div>
 
             <div className="auth-divider my-6">
-              <span>yoki davom eting</span>
+              <span>Parolni Telegram botdan oling</span>
             </div>
 
             <a

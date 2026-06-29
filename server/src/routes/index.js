@@ -12,6 +12,7 @@ const bookingsRoutes = require("./bookings");
 const cartRoutes = require("./cart");
 const paymentsRoutes = require("./payments");
 const sessionsRoutes = require("./sessions");
+const productsRoutes = require("./products");
 const agentRoutes = require("./agent");
 
 const router = express.Router();
@@ -44,6 +45,7 @@ router.use("/bookings", bookingsRoutes);
 router.use("/cart", cartRoutes);
 router.use("/payments", paymentsRoutes);
 router.use("/sessions", sessionsRoutes);
+router.use("/products", productsRoutes);
 router.use("/agent", agentRoutes);
 
 module.exports = router;

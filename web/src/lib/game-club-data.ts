@@ -22,7 +22,6 @@ export type ClubTable = {
 export type HookahBrand = {
   id: string;
   title: string;
-  isPremium?: boolean;
   sortOrder?: number;
 };
 
@@ -69,7 +68,7 @@ export function groupFlavorsByBrand(brands: HookahBrand[], flavors: HookahFlavor
 
   if (orphanFlavors.length) {
     sections.push({
-      brand: { id: "other", title: "Boshqa", isPremium: false, sortOrder: 999 },
+      brand: { id: "other", title: "Boshqa", sortOrder: 999 },
       flavors: orphanFlavors,
     });
   }
@@ -415,9 +414,18 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
 
 export type CartItem = {
   id: string;
-  type: "booking" | "hookah";
+  type: "booking" | "hookah" | "product";
   title: string;
   price: number;
+};
+
+export type ClubProduct = {
+  id: string;
+  title: string;
+  description?: string;
+  price: number;
+  quantity: number;
+  image: string;
 };
 
 export type OrderRecord = {
@@ -493,6 +501,7 @@ export const TABLE_STATUS_LABEL: Record<TableStatus, string> = {
 export const ORDER_TYPE_LABEL: Record<CartItem["type"], string> = {
   booking: "Bron",
   hookah: "Kalyan",
+  product: "Qo'shimcha",
 };
 
 export function isPsDevice(device: Device) {
@@ -557,14 +566,14 @@ export function getPcThumbImage() {
 }
 
 export const PS_DEVICE_IMAGES = [
-  "/devices/ps-01.png?v=2",
-  "/devices/ps-02.png?v=2",
-  "/devices/ps-03.png?v=2",
+  "/devices/ps-01.png?v=3",
+  "/devices/ps-02.png?v=3",
+  "/devices/ps-03.png?v=3",
 ] as const;
 
-export const PS_DEVICE_IMAGE_POSITIONS = ["center center", "center center", "center center"] as const;
+export const PS_DEVICE_IMAGE_POSITIONS = ["right center", "center center", "right center"] as const;
 
-export const PS_BOOKING_HERO = "/devices/ps-booking-hero.png";
+export const PS_BOOKING_HERO = "/devices/ps-booking-hero.png?v=2";
 
 export const DEVICE_ZONE_IMAGES = {
   ps: "/devices/zone-ps-card.png?v=7",

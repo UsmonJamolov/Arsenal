@@ -27,6 +27,7 @@ export function CartZonePanel({
   const hasItems = cart.length > 0;
   const bookingCount = cart.filter((item) => item.type === "booking").length;
   const hookahCount = cart.filter((item) => item.type === "hookah").length;
+  const productCount = cart.filter((item) => item.type === "product").length;
 
   return (
     <div className="cart-zone">
@@ -59,6 +60,12 @@ export function CartZonePanel({
                 {hookahCount} kalyan
               </span>
             ) : null}
+            {productCount > 0 ? (
+              <span className="cart-zone__chip cart-zone__chip--product">
+                <ShoppingBag className="size-3.5" />
+                {productCount} qo&apos;shimcha
+              </span>
+            ) : null}
           </div>
 
           <section className="cart-zone__orders" aria-label="Savatdagi buyurtmalar">
@@ -74,12 +81,15 @@ export function CartZonePanel({
                         "cart-zone__order-type",
                         item.type === "hookah" && "cart-zone__order-type--hookah",
                         item.type === "booking" && "cart-zone__order-type--booking",
+                        item.type === "product" && "cart-zone__order-type--product",
                       )}
                     >
                       {item.type === "booking" ? (
                         <Gamepad2 className="size-3" aria-hidden />
-                      ) : (
+                      ) : item.type === "hookah" ? (
                         <HookahIcon className="size-3" strokeWidth={1.5} aria-hidden />
+                      ) : (
+                        <ShoppingBag className="size-3" aria-hidden />
                       )}
                       {ORDER_TYPE_LABEL[item.type]}
                     </span>

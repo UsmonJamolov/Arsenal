@@ -5,6 +5,7 @@ const { seedDatabase } = require("./db/seedData");
 const { initRealtime } = require("./realtime");
 const { expireDueSessions } = require("./services/sessionService");
 const { startTelegramBot } = require("./telegram/bot");
+const { startSupportBot } = require("./telegram/supportBot");
 
 const SESSION_SWEEP_MS = 60 * 1000;
 
@@ -20,6 +21,7 @@ async function start() {
 
     initRealtime(server);
     startTelegramBot();
+    startSupportBot();
 
     setInterval(() => {
       expireDueSessions().catch((error) => {

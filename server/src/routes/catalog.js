@@ -38,4 +38,16 @@ router.get("/notifications", async (req, res, next) => {
   }
 });
 
+router.get("/support", async (req, res, next) => {
+  try {
+    const settings = await getSettings();
+    res.json({
+      phone: settings.supportPhone ?? "",
+      telegramUrl: settings.supportTelegramUrl ?? "",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

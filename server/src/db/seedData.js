@@ -5,6 +5,7 @@ const Device = require("../models/Device");
 const Table = require("../models/Table");
 const HookahFlavor = require("../models/HookahFlavor");
 const HookahBrand = require("../models/HookahBrand");
+const Product = require("../models/Product");
 const AppSettings = require("../models/AppSettings");
 const User = require("../models/User");
 const { HOOKAH_FLAVORS } = require("../data/hookahFlavors");
@@ -69,6 +70,13 @@ const TABLES = [
   { slug: "table-01", title: "Stol 01", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-01.png" },
   { slug: "table-02", title: "Stol 02", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-02.png" },
   { slug: "table-03", title: "Stol 03", status: "available", seats: 4, zone: "Kafe zonasi", image: "/hookah/table-03.png" },
+];
+
+const EXTRAS_PRODUCTS = [
+  { title: "Semichka", description: "Qovurilgan tuzli", price: 10000, quantity: 100, image: "" },
+  { title: "Qurt", description: "Mevali miksi", price: 15000, quantity: 100, image: "" },
+  { title: "Pista", description: "Tuzlangan pista", price: 20000, quantity: 100, image: "" },
+  { title: "Ichimlik", description: "Coca-Cola 330ml", price: 10000, quantity: 100, image: "" },
 ];
 
 function normalizePhone(phone) {
@@ -156,6 +164,16 @@ async function ensureTables() {
   }
 }
 
+async function ensureExtrasProducts() {
+  const count = await Product.countDocuments();
+  if (count > 0) {
+    return;
+  }
+
+  await Product.insertMany(EXTRAS_PRODUCTS);
+  console.log("Qo'shimcha mahsulotlar yuklandi.");
+}
+
 async function seedDatabase() {
   const deviceCount = await Device.countDocuments();
 
@@ -171,6 +189,7 @@ async function seedDatabase() {
   await ensureHookahFlavors();
   await ensureHookahBrands();
   await ensureTables();
+  await ensureExtrasProducts();
   await ensureAdminUser();
 
   const { syncAllTableStatuses } = require("../services/tableSync");

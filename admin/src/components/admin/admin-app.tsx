@@ -11,6 +11,7 @@ import {
   Megaphone,
   Monitor,
   Package,
+  Pencil,
   RefreshCw,
   Save,
   Settings,
@@ -68,10 +69,15 @@ const DEVICE_ZONE_OPTIONS = [
   { value: "PC Zona", label: "PC Zona" },
 ] as const;
 
+const DEVICE_AREA_OPTIONS = [
+  { value: "zal", label: "Zal" },
+  { value: "kabina", label: "Kabina" },
+] as const;
+
 const TABLE_ZONE_OPTIONS = [
   { value: "Kafe zonasi", label: "Kafe zonasi" },
   { value: "VIP zona", label: "VIP zona" },
-  { value: "Terrasa", label: "Terrasa" },
+  { value: "Kabina", label: "Kabina" },
 ] as const;
 
 const TABLE_ZONES_STORAGE_KEY = "arsenal-admin-table-zones";
@@ -159,7 +165,7 @@ type DashboardStats = {
 };
 
 type UserRow = { id: string; name: string; phone: string; email: string; loyaltyPoints: number; role: string; joinedAt?: string };
-type DeviceRow = { id: string; name: string; type: string; pricePerHour: number; status: DeviceStatus };
+type DeviceRow = { id: string; name: string; type: string; pricePerHour: number; status: DeviceStatus; area?: "zal" | "kabina" };
 type TableRow = {
   id: string;
   title: string;
@@ -179,12 +185,13 @@ type FlavorRow = {
 type HookahBrandRow = {
   id: string;
   title: string;
-  isPremium?: boolean;
   sortOrder?: number;
 };
 type ProductRow = {
   id: string;
   title: string;
+  description?: string;
+  price: number;
   quantity: number;
   image: string;
   createdAt: string;
@@ -243,7 +250,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: "devices", label: "Qurilmalar", icon: <Gamepad2 className="size-4" /> },
   { key: "tables", label: "Stollar", icon: <Armchair className="size-4" /> },
   { key: "hookah", label: "Kalyan", icon: <HookahIcon className="size-4" /> },
-  { key: "products", label: "Tovarlar", icon: <Package className="size-4" /> },
+  { key: "products", label: "Qo'shimcha mahsulotlar", icon: <Package className="size-4" /> },
   { key: "bookings", label: "Bronlar", icon: <CalendarCheck className="size-4" /> },
   { key: "settings", label: "Sozlamalar", icon: <Settings className="size-4" /> },
 ];
@@ -276,6 +283,8 @@ export function AdminApp() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
+  const [supportPhone, setSupportPhone] = useState("");
+  const [supportTelegramUrl, setSupportTelegramUrl] = useState("");
   const [notifications, setNotifications] = useState<string[]>([]);
   const [newNotification, setNewNotification] = useState("");
   const loadSeqRef = useRef(0);
@@ -327,7 +336,12 @@ export function AdminApp() {
         adminRequest<{ brands: HookahBrandRow[] }>("/api/admin/hookah-brands"),
         adminRequest<{ products: ProductRow[] }>("/api/admin/products"),
         adminRequest<{ bookings: BookingRow[] }>("/api/admin/bookings"),
-        adminRequest<{ paymentMethods: string[]; notifications: string[] }>("/api/admin/settings"),
+        adminRequest<{
+          paymentMethods: string[];
+          notifications: string[];
+          supportPhone?: string;
+          supportTelegramUrl?: string;
+        }>("/api/admin/settings"),
       ]);
 
       if (seq !== loadSeqRef.current) {
@@ -389,6 +403,8 @@ export function AdminApp() {
 
       if (settingsResult.status === "fulfilled") {
         setPaymentMethods(settingsResult.value.paymentMethods);
+        setSupportPhone(settingsResult.value.supportPhone ?? "");
+        setSupportTelegramUrl(settingsResult.value.supportTelegramUrl ?? "");
         setNotifications(settingsResult.value.notifications);
       } else {
         failures.push(settingsResult.reason instanceof Error ? settingsResult.reason.message : "Sozlamalar");
@@ -585,6 +601,8 @@ export function AdminApp() {
           {tab === "settings" ? (
             <SettingsPanel
               paymentMethods={paymentMethods}
+              supportPhone={supportPhone}
+              supportTelegramUrl={supportTelegramUrl}
               notifications={notifications}
               newNotification={newNotification}
               setNewNotification={setNewNotification}
@@ -865,9 +883,13 @@ function DashboardPanel({
 }
 
 function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefresh: () => void }) {
-  const [form, setForm] = useState({ title: "", quantity: "1", image: "" });
+  const [form, setForm] = useState({ title: "", description: "", price: "", quantity: "1", image: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "", price: "", quantity: "", image: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const totalQuantity = useMemo(
     () => products.reduce((sum, product) => sum + product.quantity, 0),
@@ -886,6 +908,12 @@ function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefr
       return;
     }
 
+    const price = Number(form.price);
+    if (!Number.isFinite(price) || price < 0) {
+      setError("Tovar narxi noto'g'ri");
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -894,16 +922,76 @@ function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefr
         method: "POST",
         body: JSON.stringify({
           title: form.title.trim(),
+          description: form.description.trim(),
+          price,
           quantity,
           image: form.image,
         }),
       });
-      setForm({ title: "", quantity: "1", image: "" });
+      setForm({ title: "", description: "", price: "", quantity: "1", image: "" });
       onRefresh();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Tovar qo'shib bo'lmadi");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startEdit = (product: ProductRow) => {
+    setEditingId(product.id);
+    setEditError(null);
+    setEditForm({
+      title: product.title,
+      description: product.description ?? "",
+      price: String(product.price ?? 0),
+      quantity: String(product.quantity),
+      image: product.image ?? "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditError(null);
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editForm.title.trim()) {
+      setEditError("Tovar nomini kiriting");
+      return;
+    }
+
+    const quantity = Number(editForm.quantity);
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      setEditError("Tovar soni noto'g'ri");
+      return;
+    }
+
+    const price = Number(editForm.price);
+    if (!Number.isFinite(price) || price < 0) {
+      setEditError("Tovar narxi noto'g'ri");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError(null);
+
+    try {
+      await adminRequest(`/api/admin/products/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          price,
+          quantity,
+          image: editForm.image,
+        }),
+      });
+      setEditingId(null);
+      onRefresh();
+    } catch (updateError) {
+      setEditError(updateError instanceof Error ? updateError.message : "Tovar yangilanmadi");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -918,7 +1006,7 @@ function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefr
       <div className="grid gap-4 sm:grid-cols-2">
         <AdminCard>
           <CardHeader>
-            <CardDescription>Jami tovarlar</CardDescription>
+            <CardDescription>Jami qo&apos;shimcha mahsulotlar</CardDescription>
             <CardTitle className="text-3xl text-amber-50">{products.length}</CardTitle>
           </CardHeader>
         </AdminCard>
@@ -932,17 +1020,31 @@ function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefr
 
       <AdminCard>
         <CardHeader>
-          <CardTitle>Yangi tovar</CardTitle>
-          <CardDescription>Nomi, soni va rasmni kiriting. Rasmni telefondan ham qo&apos;shish mumkin.</CardDescription>
+          <CardTitle>Yangi qo&apos;shimcha mahsulot</CardTitle>
+          <CardDescription>
+            Semichka, qurt, pista, yaxna ichimliklar va boshqalar. Bular PS, PC va Kalyan sahifalaridagi qo&apos;shimcha
+            buyurtma oynasida ko&apos;rinadi. Rasmni telefondan ham qo&apos;shish mumkin.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <label className="flex flex-col gap-1 text-sm text-text-muted">
               Tovar nomi *
               <Input
                 placeholder="Masalan: Coca-Cola 0.5L"
                 value={form.title}
                 onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
+              Narxi (UZS) *
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                placeholder="Masalan: 12000"
+                value={form.price}
+                onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
               />
             </label>
             <label className="flex flex-col gap-1 text-sm text-text-muted">
@@ -956,6 +1058,15 @@ function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefr
               />
             </label>
           </div>
+
+          <label className="flex flex-col gap-1 text-sm text-text-muted">
+            Tavsif (ixtiyoriy)
+            <Input
+              placeholder="Masalan: Qovurilgan tuzli"
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+            />
+          </label>
 
           <div className="space-y-2">
             <p className="text-sm text-text-muted">Tovar rasmi</p>
@@ -975,9 +1086,79 @@ function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefr
         </CardContent>
       </AdminCard>
 
+      {editingId ? (
+        <AdminCard>
+          <CardHeader>
+            <CardTitle>Tovarni tahrirlash</CardTitle>
+            <CardDescription>Nomi, narxi, soni va rasmni o&apos;zgartiring.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="flex flex-col gap-1 text-sm text-text-muted">
+                Tovar nomi *
+                <Input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text-muted">
+                Narxi (UZS) *
+                <Input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={editForm.price}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, price: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-text-muted">
+                Soni *
+                <Input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={editForm.quantity}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                />
+              </label>
+            </div>
+
+            <label className="flex flex-col gap-1 text-sm text-text-muted">
+              Tavsif (ixtiyoriy)
+              <Input
+                placeholder="Masalan: Qovurilgan tuzli"
+                value={editForm.description}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+              />
+            </label>
+
+            <div className="space-y-2">
+              <p className="text-sm text-text-muted">Tovar rasmi</p>
+              <ProductImageUpload
+                value={editForm.image}
+                fileName={editForm.title}
+                onChange={(image) => setEditForm((prev) => ({ ...prev, image }))}
+                disabled={editSaving}
+              />
+            </div>
+
+            {editError ? <p className="text-sm text-rose-300">{editError}</p> : null}
+
+            <div className="flex gap-2">
+              <Button type="button" onClick={() => saveEdit(editingId)} disabled={editSaving}>
+                {editSaving ? "Saqlanmoqda..." : "Saqlash"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={cancelEdit} disabled={editSaving}>
+                Bekor qilish
+              </Button>
+            </div>
+          </CardContent>
+        </AdminCard>
+      ) : null}
+
       <AdminTable
-        title="Tovarlar ro'yxati"
-        headers={["Rasm", "Nomi", "Soni", "Qo'shilgan", ""]}
+        title="Qo'shimcha mahsulotlar ro'yxati"
+        headers={["Rasm", "Nomi", "Narxi", "Soni", "Qo'shilgan", ""]}
         rows={products.map((product) => [
           product.image ? (
             <img
@@ -989,12 +1170,27 @@ function ProductsPanel({ products, onRefresh }: { products: ProductRow[]; onRefr
           ) : (
             <span key={`${product.id}-image`} className="text-text-faint">—</span>
           ),
-          product.title,
+          product.title ? (
+            <div key={`${product.id}-title`}>
+              <p className="font-medium text-text-primary">{product.title}</p>
+              {product.description ? (
+                <p className="text-xs text-text-faint">{product.description}</p>
+              ) : null}
+            </div>
+          ) : (
+            <span key={`${product.id}-title`}>—</span>
+          ),
+          formatCurrency(product.price ?? 0),
           product.quantity,
           formatDateTime(product.createdAt),
-          <Button key={product.id} type="button" size="sm" variant="secondary" onClick={() => deleteProduct(product.id)}>
-            <Trash2 className="size-3" />
-          </Button>,
+          <div key={`${product.id}-actions`} className="flex justify-end gap-2">
+            <Button type="button" size="sm" variant="secondary" onClick={() => startEdit(product)}>
+              <Pencil className="size-3" />
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => deleteProduct(product.id)}>
+              <Trash2 className="size-3" />
+            </Button>
+          </div>,
         ])}
       />
     </div>
@@ -1028,7 +1224,7 @@ function UsersPanel({ users, onRefresh }: { users: UserRow[]; onRefresh: () => v
 
 function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh: () => void }) {
   const [zone, setZone] = useState<DeviceZone | null>(null);
-  const [form, setForm] = useState({ slug: "", name: "", type: "PS Zona", pricePerHour: "45000", status: "available" });
+  const [form, setForm] = useState({ slug: "", name: "", type: "PS Zona", pricePerHour: "45000", status: "available", area: "zal" });
 
   const psDevices = useMemo(() => filterDevicesByZone(devices, "ps"), [devices]);
   const pcDevices = useMemo(() => filterDevicesByZone(devices, "pc"), [devices]);
@@ -1050,12 +1246,18 @@ function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh:
       type: zone === "pc" ? "PC Zona" : "PS Zona",
       pricePerHour: "45000",
       status: "available",
+      area: "zal",
     });
     onRefresh();
   };
 
   const updateStatus = async (id: string, status: string) => {
     await adminRequest(`/api/admin/devices/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    onRefresh();
+  };
+
+  const updateArea = async (id: string, area: string) => {
+    await adminRequest(`/api/admin/devices/${id}`, { method: "PATCH", body: JSON.stringify({ area }) });
     onRefresh();
   };
 
@@ -1068,9 +1270,21 @@ function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh:
   const renderDeviceTable = (title: string, list: DeviceRow[]) => (
     <AdminTable
       title={title}
-      headers={["ID", "Nomi", "Turi", "Narx", "Holat", ""]}
+      headers={["Hudud", "Nomi", "Turi", "Narx", "Holat", ""]}
       rows={list.map((device) => [
-        device.id,
+        <Select
+          key={`${device.id}-area`}
+          value={device.area ?? "zal"}
+          onChange={(e) => updateArea(device.id, e.target.value)}
+          className="h-9 font-bold text-white scheme-dark"
+          aria-label="Hudud"
+        >
+          {DEVICE_AREA_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+              {option.label}
+            </option>
+          ))}
+        </Select>,
         device.name,
         device.type,
         formatCurrency(device.pricePerHour),
@@ -1112,6 +1326,18 @@ function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh:
             ))}
           </Select>
           <Input placeholder="Narx/soat" value={form.pricePerHour} onChange={(e) => setForm({ ...form, pricePerHour: e.target.value })} />
+          <Select
+            value={form.area}
+            onChange={(e) => setForm({ ...form, area: e.target.value })}
+            className="h-9 font-bold text-white scheme-dark"
+            aria-label="Hudud"
+          >
+            {DEVICE_AREA_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value} className="bg-[#181425] text-white">
+                {option.label}
+              </option>
+            ))}
+          </Select>
           <ColoredStatusSelect value={form.status} onChange={(status) => setForm({ ...form, status })} options={DEVICE_STATUS_OPTIONS} />
           <Button type="button" onClick={createDevice} disabled={!zone}>
             Qo&apos;shish
@@ -1547,7 +1773,6 @@ function HookahBrandsPanel({
       mergeRowDrafts(prev, brands, (brand) => ({
         id: brand.id,
         title: brand.title,
-        isPremium: brand.isPremium ?? false,
         sortOrder: brand.sortOrder ?? 0,
       })),
     );
@@ -1583,7 +1808,6 @@ function HookahBrandsPanel({
         method: "PUT",
         body: JSON.stringify({
           title: draft.title.trim(),
-          isPremium: Boolean(draft.isPremium),
         }),
       });
       setDrafts((prev) => ({
@@ -1591,7 +1815,6 @@ function HookahBrandsPanel({
         [id]: {
           id: brand.id,
           title: brand.title,
-          isPremium: brand.isPremium ?? false,
           sortOrder: brand.sortOrder ?? 0,
         },
       }));
@@ -1655,7 +1878,7 @@ function HookahBrandsPanel({
           <table className="w-full min-w-[520px] text-left text-sm">
             <thead>
               <tr className="border-b border-violet-500/25 text-violet-200/60">
-                {["Slug", "Nomi", "Premium", ""].map((header) => (
+                {["Slug", "Nomi", ""].map((header) => (
                   <th key={header} className="px-3 py-2 font-semibold">
                     {header}
                   </th>
@@ -1675,17 +1898,6 @@ function HookahBrandsPanel({
                         onChange={(event) => patchDraft(brand.id, { title: event.target.value })}
                         className="min-w-[160px]"
                       />
-                    </td>
-                    <td className="px-3 py-3">
-                      <label className="inline-flex items-center gap-2 text-sm text-violet-100/80">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(draft.isPremium)}
-                          onChange={(event) => patchDraft(brand.id, { isPremium: event.target.checked })}
-                          className="size-4 rounded border-violet-400/40 bg-[#181425]"
-                        />
-                        Premium
-                      </label>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex gap-1">
@@ -1989,22 +2201,38 @@ function BookingsPanel({ bookings, onRefresh }: { bookings: BookingRow[]; onRefr
 
 function SettingsPanel({
   paymentMethods,
+  supportPhone,
+  supportTelegramUrl,
   notifications,
   newNotification,
   setNewNotification,
   onRefresh,
 }: {
   paymentMethods: string[];
+  supportPhone: string;
+  supportTelegramUrl: string;
   notifications: string[];
   newNotification: string;
   setNewNotification: (value: string) => void;
   onRefresh: () => void;
 }) {
   const [methodsText, setMethodsText] = useState(paymentMethods.join(", "));
+  const [phoneText, setPhoneText] = useState(supportPhone);
+  const [telegramText, setTelegramText] = useState(supportTelegramUrl);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactSaved, setContactSaved] = useState(false);
 
   useEffect(() => {
     setMethodsText(paymentMethods.join(", "));
   }, [paymentMethods]);
+
+  useEffect(() => {
+    setPhoneText(supportPhone);
+  }, [supportPhone]);
+
+  useEffect(() => {
+    setTelegramText(supportTelegramUrl);
+  }, [supportTelegramUrl]);
 
   const saveSettings = async () => {
     await adminRequest("/api/admin/settings", {
@@ -2014,6 +2242,24 @@ function SettingsPanel({
       }),
     });
     onRefresh();
+  };
+
+  const saveContacts = async () => {
+    setContactSaving(true);
+    setContactSaved(false);
+    try {
+      await adminRequest("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          supportPhone: phoneText.trim(),
+          supportTelegramUrl: telegramText.trim(),
+        }),
+      });
+      setContactSaved(true);
+      onRefresh();
+    } finally {
+      setContactSaving(false);
+    }
   };
 
   const addNotification = async () => {
@@ -2037,6 +2283,43 @@ function SettingsPanel({
           <Button type="button" onClick={saveSettings}>
             Saqlash
           </Button>
+        </CardContent>
+      </AdminCard>
+
+      <AdminCard>
+        <CardHeader>
+          <CardTitle>Aloqa ma&apos;lumotlari</CardTitle>
+          <CardDescription>Mijoz ilovasida ko&apos;rsatiladigan telefon va Telegram havolasi</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-violet-200/70">Telefon raqami</label>
+            <Input
+              value={phoneText}
+              placeholder="+998 90 123 45 67"
+              onChange={(e) => {
+                setPhoneText(e.target.value);
+                setContactSaved(false);
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-violet-200/70">Telegram havolasi</label>
+            <Input
+              value={telegramText}
+              placeholder="https://t.me/arsenal_union_bot"
+              onChange={(e) => {
+                setTelegramText(e.target.value);
+                setContactSaved(false);
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="button" onClick={saveContacts} disabled={contactSaving}>
+              {contactSaving ? "Saqlanmoqda..." : "Saqlash"}
+            </Button>
+            {contactSaved ? <span className="text-sm text-emerald-300">Saqlandi</span> : null}
+          </div>
         </CardContent>
       </AdminCard>
 

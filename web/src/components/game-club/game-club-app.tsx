@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ChevronRight, CreditCard, Gamepad2, History, ShoppingCart } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MobileBottomNav } from "@/components/game-club/mobile-bottom-nav";
 import { HookahZonePanel } from "@/components/game-club/hookah-zone-panel";
@@ -10,6 +10,7 @@ import { HomePanel } from "@/components/game-club/home-panel";
 import { PcZonePanel } from "@/components/game-club/pc-zone-panel";
 import { PsZonePanel } from "@/components/game-club/ps-zone-panel";
 import { CartZonePanel } from "@/components/game-club/cart-zone-panel";
+import { ExtrasOrderModal } from "@/components/game-club/extras-order-modal";
 import { PaymentZonePanel } from "@/components/game-club/payment-zone-panel";
 import { ProfilePanel } from "@/components/profile/profile-panel";
 import { getSession, clearSession, type UserSession } from "@/lib/auth";
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type Booking,
+  type ClubProduct,
   type CartItem,
   type ClubTable,
   type Device,
@@ -84,6 +86,8 @@ export function GameClubApp() {
   const [hookahQuantity, setHookahQuantity] = useState(1);
   const [hookahMixes, setHookahMixes] = useState<Record<string, number>[]>([{}]);
   const [hookahLoading, setHookahLoading] = useState(false);
+  const [hookahCatalogLoading, setHookahCatalogLoading] = useState(true);
+  const [hookahCatalogError, setHookahCatalogError] = useState<string | null>(null);
   const [hookahStartHour, setHookahStartHour] = useState("13:00");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Payme");
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -96,6 +100,12 @@ export function GameClubApp() {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [extrasProducts, setExtrasProducts] = useState<ClubProduct[]>([]);
+  const [extrasProductsLoading, setExtrasProductsLoading] = useState(true);
+  const [extrasModalOpen, setExtrasModalOpen] = useState(false);
+  const [extrasSelections, setExtrasSelections] = useState<Record<string, number>>({});
+  const [pendingOrderAction, setPendingOrderAction] = useState<"booking" | "hookah" | null>(null);
+  const [extrasConfirming, setExtrasConfirming] = useState(false);
 
   useEffect(() => {
     const stored = getSession();
@@ -139,26 +149,65 @@ export function GameClubApp() {
     }
   }, []);
 
+  const loadProducts = useCallback(async () => {
+    setExtrasProductsLoading(true);
+    try {
+      const list = await apiRequest<ClubProduct[]>("/api/products");
+      setExtrasProducts(list);
+    } catch {
+      setExtrasProducts([]);
+    } finally {
+      setExtrasProductsLoading(false);
+    }
+  }, []);
+
   const loadHookahCatalog = useCallback(async () => {
-    const [tablesResult, flavorsResult, brandsResult] = await Promise.allSettled([
-      apiRequest<ClubTable[]>("/api/tables"),
-      apiRequest<HookahFlavor[]>("/api/hookah/flavors"),
-      apiRequest<HookahBrand[]>("/api/hookah/brands"),
-    ]);
+    setHookahCatalogLoading(true);
+    setHookahCatalogError(null);
 
-    if (tablesResult.status === "fulfilled") {
-      setTables(tablesResult.value);
-      setSelectedTableIds((prev) => prev.filter((id) => tablesResult.value.some((table) => table.id === id)));
+    try {
+      const [tablesResult, flavorsResult, brandsResult] = await Promise.allSettled([
+        apiRequest<ClubTable[]>("/api/tables"),
+        apiRequest<HookahFlavor[]>("/api/hookah/flavors"),
+        apiRequest<HookahBrand[]>("/api/hookah/brands"),
+      ]);
+
+      const failures: string[] = [];
+
+      if (tablesResult.status === "fulfilled") {
+        setTables(tablesResult.value);
+        setSelectedTableIds((prev) => prev.filter((id) => tablesResult.value.some((table) => table.id === id)));
+      } else {
+        failures.push("stollar");
+      }
+
+      const flavors = flavorsResult.status === "fulfilled" ? flavorsResult.value : [];
+      if (flavorsResult.status === "fulfilled") {
+        setHookahFlavors(flavors);
+        setSelectedFlavorIds((prev) => prev.filter((id) => flavors.some((flavor) => flavor.id === id)));
+      } else {
+        failures.push("ta'mlar");
+      }
+
+      const brands = brandsResult.status === "fulfilled" ? brandsResult.value : [];
+      if (brandsResult.status === "fulfilled") {
+        setHookahBrands(mergeHookahBrands(brands, flavors));
+      } else {
+        failures.push("brendlar");
+      }
+
+      if (failures.length === 3) {
+        const reason =
+          tablesResult.status === "rejected" && tablesResult.reason instanceof Error
+            ? tablesResult.reason.message
+            : "Internet yoki server bilan aloqa yo'q";
+        setHookahCatalogError(`${reason}. API serverni tekshiring (cd server && npm run dev).`);
+      } else if (failures.length > 0) {
+        setHookahCatalogError(`Katalogni to'liq yuklab bo'lmadi: ${failures.join(", ")}.`);
+      }
+    } finally {
+      setHookahCatalogLoading(false);
     }
-
-    const flavors = flavorsResult.status === "fulfilled" ? flavorsResult.value : [];
-    if (flavorsResult.status === "fulfilled") {
-      setHookahFlavors(flavors);
-      setSelectedFlavorIds((prev) => prev.filter((id) => flavors.some((flavor) => flavor.id === id)));
-    }
-
-    const brands = brandsResult.status === "fulfilled" ? brandsResult.value : [];
-    setHookahBrands(mergeHookahBrands(brands, flavors));
   }, []);
 
   const loadBookings = useCallback(async () => {
@@ -221,7 +270,7 @@ export function GameClubApp() {
     async function loadInitialData() {
       setDevicesLoading(true);
       try {
-        await Promise.all([loadDevices(), loadHookahCatalog()]);
+        await Promise.all([loadDevices(), loadHookahCatalog(), loadProducts()]);
         await syncUserContext();
       } catch {
         /* ma'lumotlar yuklanmadi */
@@ -231,9 +280,26 @@ export function GameClubApp() {
     }
 
     loadInitialData();
-  }, [loadDevices, loadHookahCatalog, syncUserContext]);
+  }, [loadDevices, loadHookahCatalog, loadProducts, syncUserContext]);
 
   useEffect(() => trackSocketConnection(setLiveStatus), []);
+
+  // Server qayta ulanganda (uzilishdan keyin) ma'lumotlarni darhol tiklash
+  const prevLiveStatusRef = useRef<LiveStatus>("connecting");
+  useEffect(() => {
+    const previous = prevLiveStatusRef.current;
+    prevLiveStatusRef.current = liveStatus;
+
+    if (liveStatus === "connected" && previous !== "connected") {
+      loadDevices().catch(() => undefined);
+      loadHookahCatalog().catch(() => undefined);
+      loadProducts().catch(() => undefined);
+      if (session?.id) {
+        loadBookings().catch(() => undefined);
+        refreshCart().catch(() => undefined);
+      }
+    }
+  }, [liveStatus, session?.id, loadDevices, loadHookahCatalog, loadProducts, loadBookings, refreshCart]);
 
   // Live (socket) ulanmasa ham bronlar ishlashi uchun — har 20s yangilash
   useEffect(() => {
@@ -242,6 +308,7 @@ export function GameClubApp() {
     const timer = setInterval(() => {
       loadDevices().catch(() => undefined);
       loadHookahCatalog().catch(() => undefined);
+      loadProducts().catch(() => undefined);
       if (session?.id) {
         loadBookings().catch(() => undefined);
         refreshCart().catch(() => undefined);
@@ -249,7 +316,7 @@ export function GameClubApp() {
     }, 20000);
 
     return () => clearInterval(timer);
-  }, [liveStatus, session?.id, loadDevices, loadHookahCatalog, loadBookings, refreshCart]);
+  }, [liveStatus, session?.id, loadDevices, loadHookahCatalog, loadProducts, loadBookings, refreshCart]);
 
   useEffect(() => {
     if (!session?.id) {
@@ -306,21 +373,72 @@ export function GameClubApp() {
   const bookingPrice = getDevicesBookingTotal(zoneDevices, selectedDeviceIds, durationHours);
   const grandTotal = useMemo(() => sumPrice(cart), [cart]);
 
-  const createBooking = async () => {
+  const openExtrasModal = (action: "booking" | "hookah" | null) => {
+    setExtrasSelections({});
+    setPendingOrderAction(action);
+    setExtrasModalOpen(true);
+  };
+
+  const changeExtrasSelection = (productId: string, quantity: number) => {
+    setExtrasSelections((prev) => {
+      const next = { ...prev };
+      if (quantity <= 0) {
+        delete next[productId];
+      } else {
+        next[productId] = quantity;
+      }
+      return next;
+    });
+  };
+
+  const addExtrasToCart = async (selections: Record<string, number>) => {
+    const items = Object.entries(selections)
+      .filter(([, qty]) => qty > 0)
+      .map(([productId, quantity]) => ({ productId, quantity }));
+
+    if (!items.length || !session?.id) {
+      return;
+    }
+
+    setApiUserId(session.id);
+    await apiRequest("/api/cart/extras", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    });
+  };
+
+  const closeExtrasModal = () => {
+    if (extrasConfirming) {
+      return;
+    }
+    setExtrasModalOpen(false);
+    setPendingOrderAction(null);
+    setExtrasSelections({});
+  };
+
+  const validateBooking = (): boolean => {
     if (!session?.id) {
       setBookingError("Bron uchun avval tizimga kiring");
-      return;
+      return false;
     }
 
     if (!selectedDeviceIds.length) {
       setBookingError("Kamida bitta qurilma tanlang");
-      return;
+      return false;
     }
 
     const selectedDevices = zoneDevices.filter((device) => selectedDeviceIds.includes(device.id));
     const blocked = selectedDevices.find((device) => device.status !== "available");
     if (blocked) {
       setBookingError(`${blocked.name} hozir bo'sh emas. Boshqa qurilma tanlang.`);
+      return false;
+    }
+
+    return true;
+  };
+
+  const performCreateBooking = async () => {
+    if (!session?.id) {
       return;
     }
 
@@ -354,14 +472,25 @@ export function GameClubApp() {
     }
   };
 
-  const addHookahToCart = async () => {
-    if (
-      !selectedFlavorIds.length ||
-      !selectedTableIds.length ||
-      !hookahStartHour.trim() ||
-      hookahQuantity < 1 ||
-      !areHookahMixesValid(hookahMixes, selectedFlavorIds)
-    ) {
+  const requestBookingWithExtras = () => {
+    if (!validateBooking()) {
+      return;
+    }
+    openExtrasModal("booking");
+  };
+
+  const validateHookahOrder = (): boolean => {
+    return (
+      selectedFlavorIds.length > 0 &&
+      selectedTableIds.length > 0 &&
+      hookahStartHour.trim().length > 0 &&
+      hookahQuantity >= 1 &&
+      areHookahMixesValid(hookahMixes, selectedFlavorIds)
+    );
+  };
+
+  const performAddHookahToCart = async () => {
+    if (!validateHookahOrder()) {
       return;
     }
 
@@ -386,6 +515,52 @@ export function GameClubApp() {
     } finally {
       setHookahLoading(false);
     }
+  };
+
+  const requestHookahWithExtras = () => {
+    if (!validateHookahOrder()) {
+      return;
+    }
+    openExtrasModal("hookah");
+  };
+
+  const finalizeExtrasOrder = async (skipExtras: boolean) => {
+    setExtrasConfirming(true);
+    try {
+      const hasSelections = Object.values(extrasSelections).some((count) => count > 0);
+
+      if (!skipExtras && hasSelections) {
+        await addExtrasToCart(extrasSelections);
+      }
+
+      setExtrasModalOpen(false);
+
+      if (pendingOrderAction === "booking") {
+        await performCreateBooking();
+      } else if (pendingOrderAction === "hookah") {
+        await performAddHookahToCart();
+      } else if (!skipExtras && hasSelections) {
+        await refreshCart();
+        setActiveTab("cart");
+      }
+    } catch (error) {
+      if (pendingOrderAction === "booking") {
+        setBookingError(error instanceof Error ? error.message : "Qo'shimcha qo'shilmadi");
+      }
+    } finally {
+      setExtrasConfirming(false);
+      setPendingOrderAction(null);
+      setExtrasSelections({});
+    }
+  };
+
+  const openStandaloneExtras = () => {
+    if (!session?.id) {
+      window.location.replace("/auth");
+      return;
+    }
+    setBookingError(null);
+    openExtrasModal(null);
   };
 
   const handleHookahMixChange = (hookahIndex: number, flavorId: string, value: number) => {
@@ -599,7 +774,8 @@ export function GameClubApp() {
                   }}
                   setDurationHours={setDurationHours}
                   setStartHour={setStartHour}
-                  onCreateBooking={createBooking}
+                  onCreateBooking={requestBookingWithExtras}
+                  onOpenExtras={openStandaloneExtras}
                 />
               ) : (
                 <PsZonePanel
@@ -625,7 +801,8 @@ export function GameClubApp() {
                   }}
                   setDurationHours={setDurationHours}
                   setStartHour={setStartHour}
-                  onCreateBooking={createBooking}
+                  onCreateBooking={requestBookingWithExtras}
+                  onOpenExtras={openStandaloneExtras}
                 />
               ))}
             {activeTab === "hookah" && (
@@ -634,6 +811,11 @@ export function GameClubApp() {
                 brands={hookahBrands}
                 tables={tables}
                 loading={hookahLoading}
+                catalogLoading={hookahCatalogLoading}
+                catalogError={hookahCatalogError}
+                onRetryCatalog={() => {
+                  void loadHookahCatalog();
+                }}
                 selectedFlavorIds={selectedFlavorIds}
                 selectedTableIds={selectedTableIds}
                 startHour={hookahStartHour}
@@ -658,7 +840,8 @@ export function GameClubApp() {
                 setHookahQuantity={setHookahQuantity}
                 hookahMixes={hookahMixes}
                 onMixPercentChange={handleHookahMixChange}
-                onAddHookah={addHookahToCart}
+                onAddHookah={requestHookahWithExtras}
+                onOpenExtras={openStandaloneExtras}
               />
             )}
             {activeTab === "cart" && (
@@ -707,11 +890,26 @@ export function GameClubApp() {
           </div>
         </section>
 
-        <MobileBottomNav
-          activeTab={activeTab}
-          cartCount={cart.length}
-          profileAvatarUrl={profileAvatarUrl}
-          onChange={setActiveTab}
+        {!extrasModalOpen ? (
+          <MobileBottomNav
+            activeTab={activeTab}
+            cartCount={cart.length}
+            profileAvatarUrl={profileAvatarUrl}
+            onChange={setActiveTab}
+          />
+        ) : null}
+
+        <ExtrasOrderModal
+          open={extrasModalOpen}
+          products={extrasProducts}
+          loading={extrasProductsLoading}
+          skipAsk={pendingOrderAction === null}
+          selections={extrasSelections}
+          onChange={changeExtrasSelection}
+          onClose={closeExtrasModal}
+          onSkip={() => void finalizeExtrasOrder(true)}
+          onConfirm={() => void finalizeExtrasOrder(false)}
+          confirming={extrasConfirming}
         />
       </div>
     </main>

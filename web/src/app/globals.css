@@ -8,6 +8,7 @@
 @import "./profile.css";
 @import "./card-checkout.css";
 @import "./payment-return.css";
+@import "./extras-order-modal.css";
 
 /* ── Arsenal Union — Arena Ops design tokens ── */
 :root {
@@ -197,9 +198,12 @@ body {
   animation: auth-grid-drift 14s linear infinite;
 }
 
-/* Auth page — gaming lobby */
+/* Auth page — gaming lobby (qizil brend palitrasi) */
 .auth-page {
   background: transparent;
+  /* Auth doirasida asosiy aksent rangni qizilga aylantiramiz */
+  --brand-cyan: var(--au-red-bright);
+  --brand-cyan-dim: var(--au-red-soft);
 }
 
 .auth-page__bg {
@@ -295,7 +299,7 @@ body {
   margin: 0.5rem auto 0;
   border-radius: 2px;
   background: var(--brand-cyan);
-  box-shadow: 0 0 12px oklch(0.78 0.14 195 / 0.6);
+  box-shadow: 0 0 12px var(--au-red-glow);
 }
 
 .auth-tabs {
@@ -333,7 +337,7 @@ body {
   height: 2px;
   border-radius: 2px;
   background: var(--brand-cyan);
-  box-shadow: 0 0 12px oklch(0.78 0.14 195 / 0.6);
+  box-shadow: 0 0 12px var(--au-red-glow);
 }
 
 .auth-input {
@@ -343,7 +347,7 @@ body {
 }
 
 .auth-input:focus {
-  border-color: oklch(0.78 0.14 195 / 0.5);
+  border-color: rgb(227 24 55 / 0.5);
 }
 
 .auth-submit {
@@ -355,17 +359,17 @@ body {
   height: 3rem;
   border-radius: 0.75rem;
   border: none;
-  background: linear-gradient(135deg, oklch(0.82 0.14 195), oklch(0.72 0.16 195));
-  color: oklch(0.12 0.02 268);
+  background: linear-gradient(135deg, var(--au-red-bright), var(--au-red));
+  color: #ffffff;
   font-size: 0.9375rem;
   font-weight: 700;
-  box-shadow: 0 8px 24px oklch(0.78 0.14 195 / 0.35);
+  box-shadow: 0 8px 24px var(--au-red-glow);
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 .auth-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px oklch(0.78 0.14 195 / 0.42);
+  box-shadow: 0 12px 28px rgb(227 24 55 / 0.5);
 }
 
 .auth-submit:active:not(:disabled) {
@@ -426,8 +430,8 @@ body {
   gap: 0.75rem;
   height: 3rem;
   border-radius: 0.75rem;
-  border: 1px solid oklch(0.78 0.14 195 / 0.55);
-  background: oklch(0.16 0.04 220 / 0.52);
+  border: 1px solid rgb(227 24 55 / 0.55);
+  background: oklch(0.16 0.03 18 / 0.52);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   color: var(--brand-cyan);
@@ -436,7 +440,7 @@ body {
   letter-spacing: 0.01em;
   text-decoration: none;
   box-shadow:
-    0 0 0 1px oklch(0.78 0.14 195 / 0.08),
+    0 0 0 1px rgb(227 24 55 / 0.08),
     0 4px 18px oklch(0 0 0 / 0.28);
   transition:
     transform 0.15s ease,
@@ -453,33 +457,33 @@ body {
   width: 1.875rem;
   height: 1.875rem;
   border-radius: 0.5rem;
-  border: 1px solid oklch(0.78 0.14 195 / 0.45);
-  background: oklch(0.78 0.14 195 / 0.12);
+  border: 1px solid rgb(227 24 55 / 0.45);
+  background: rgb(227 24 55 / 0.12);
   color: var(--brand-cyan);
 }
 
 .auth-telegram-btn:hover {
   transform: translateY(-1px);
-  border-color: oklch(0.82 0.14 195 / 0.75);
-  background: oklch(0.18 0.05 220 / 0.62);
-  color: oklch(0.88 0.12 195);
+  border-color: rgb(227 24 55 / 0.75);
+  background: oklch(0.2 0.04 18 / 0.62);
+  color: #ff5a72;
   box-shadow:
-    0 0 20px oklch(0.78 0.14 195 / 0.18),
+    0 0 20px rgb(227 24 55 / 0.18),
     0 6px 20px oklch(0 0 0 / 0.32);
 }
 
 .auth-telegram-btn:active {
   transform: translateY(0);
   box-shadow:
-    0 0 12px oklch(0.78 0.14 195 / 0.12),
+    0 0 12px rgb(227 24 55 / 0.12),
     0 2px 10px oklch(0 0 0 / 0.24);
 }
 
 .auth-telegram-btn:focus-visible {
   outline: none;
-  border-color: oklch(0.82 0.14 195 / 0.8);
+  border-color: rgb(227 24 55 / 0.8);
   box-shadow:
-    0 0 0 3px oklch(0.78 0.14 195 / 0.28),
+    0 0 0 3px rgb(227 24 55 / 0.28),
     0 4px 18px oklch(0 0 0 / 0.28);
 }
 
