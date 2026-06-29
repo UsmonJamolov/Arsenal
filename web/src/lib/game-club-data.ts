@@ -566,7 +566,7 @@ export function getPcThumbImage() {
 }
 
 export const PS_DEVICE_IMAGES = [
-  "/devices/ps-01.png?v=3",
+  "/devices/ps-01.png?v=4",
   "/devices/ps-02.png?v=3",
   "/devices/ps-03.png?v=3",
 ] as const;

@@ -74,6 +74,15 @@ const DEVICE_AREA_OPTIONS = [
   { value: "kabina", label: "Kabina" },
 ] as const;
 
+const PC_DEVICE_AREA_OPTIONS = [
+  { value: "zal", label: "Zal" },
+  { value: "kabina", label: "VIP Zona" },
+] as const;
+
+function getDeviceAreaOptions(zone: DeviceZone | null) {
+  return zone === "pc" ? PC_DEVICE_AREA_OPTIONS : DEVICE_AREA_OPTIONS;
+}
+
 const TABLE_ZONE_OPTIONS = [
   { value: "Kafe zonasi", label: "Kafe zonasi" },
   { value: "VIP zona", label: "VIP zona" },
@@ -1279,7 +1288,7 @@ function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh:
           className="h-9 font-bold text-white scheme-dark"
           aria-label="Hudud"
         >
-          {DEVICE_AREA_OPTIONS.map((option) => (
+          {getDeviceAreaOptions(zone).map((option) => (
             <option key={option.value} value={option.value} className="bg-[#181425] text-white">
               {option.label}
             </option>
@@ -1332,7 +1341,7 @@ function DevicesPanel({ devices, onRefresh }: { devices: DeviceRow[]; onRefresh:
             className="h-9 font-bold text-white scheme-dark"
             aria-label="Hudud"
           >
-            {DEVICE_AREA_OPTIONS.map((option) => (
+            {getDeviceAreaOptions(zone).map((option) => (
               <option key={option.value} value={option.value} className="bg-[#181425] text-white">
                 {option.label}
               </option>

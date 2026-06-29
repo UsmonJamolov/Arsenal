@@ -1,14 +1,13 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, Check, ChevronRight, Circle, Clock, Cpu, Monitor } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Circle, Clock, Monitor } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   getPcDeviceImage,
   getPcDeviceImagePosition,
-  getPcStationMeta,
   PC_BOOKING_HERO,
   STATUS_LABEL,
   type Device,
@@ -90,7 +89,6 @@ export function PcZonePanel({
         ) : (
           devices.map((device, index) => {
             const active = selectedDeviceIds.includes(device.id);
-            const meta = getPcStationMeta(index);
             const image = getPcDeviceImage(index);
 
             return (
@@ -133,16 +131,6 @@ export function PcZonePanel({
                   <p className="pc-zone__station-meta tabular-data">
                     {device.type} • {formatCurrency(device.pricePerHour)}/soat
                   </p>
-                  <div className="pc-zone__station-specs">
-                    <span className="pc-zone__station-spec">
-                      <Cpu className="size-3.5" strokeWidth={2} />
-                      {meta.gpu}
-                    </span>
-                    <span className="pc-zone__station-spec">
-                      <Monitor className="size-3.5" strokeWidth={2} />
-                      {meta.display}
-                    </span>
-                  </div>
                   <PcStatusPill status={device.status} className="mt-3" />
                 </div>
               </motion.button>
